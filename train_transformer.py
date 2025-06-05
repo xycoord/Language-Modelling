@@ -17,13 +17,13 @@ n_layers = 6
 dropout = 0.2
 
 # data
-split_p = 0.9
+split_p = 0.95
 
 # training
 batch_size = 64
 block_size = 256
 epochs = 1
-eval_interval = 500
+eval_interval = 2000
 learning_rate = 3e-4
 
 
@@ -78,6 +78,9 @@ def evaluate_model(model, val_loader):
     losses = []
     for batch in val_loader:
         context, targets = batch
+        context = context.to(device)
+        targets = targets.to(device)
+
         logits = model(context)
         loss = compute_loss(logits, targets)
         losses.append(loss.item())
@@ -94,6 +97,8 @@ def train_loop(model, optimizer, train_loader, val_loader):
             optimizer.zero_grad(set_to_none=True)
 
             context, targets = batch
+            context = context.to(device)
+            targets = targets.to(device)
 
             logits = model(context)
 
@@ -108,6 +113,7 @@ def train_loop(model, optimizer, train_loader, val_loader):
             if global_step % eval_interval == 0:
                 val_loss = evaluate_model(model, val_loader)
                 print(f'validation loss: {val_loss}, global_step: {global_step}')
+                print(generate_example(model, tokenizer, max_tokens=block_size))
             
             global_step += 1
 

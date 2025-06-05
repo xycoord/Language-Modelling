@@ -55,6 +55,8 @@ def evaluate_model(model, val_loader):
     losses = []
     for batch in val_loader:
         context, targets = batch
+        context = context.to(device)
+        targets = targets.to(device)
         logits = model(context)
         loss = compute_loss(logits, targets)
         losses.append(loss.item())
@@ -71,6 +73,9 @@ def train_loop(model, optimizer, train_loader, val_loader):
             optimizer.zero_grad(set_to_none=True)
 
             context, targets = batch
+
+            context = context.to(device)
+            targets = targets.to(device)
 
             logits = model(context)
 
