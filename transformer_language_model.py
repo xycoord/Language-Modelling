@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from transformer_components import Block
+from transformer_components import Block, ResidualProjection
+import math
 
 class TransformerLanguageModel(nn.Module):
     """
@@ -13,13 +14,28 @@ class TransformerLanguageModel(nn.Module):
         self.vocab_size = vocab_size
         self.block_size = block_size
         self.embed_dim = embed_dim
-
+        
         self.token_embedding_table = nn.Embedding(vocab_size, embed_dim)
         self.position_embedding_table = nn.Embedding(block_size, embed_dim)
-
         self.blocks = nn.Sequential(*[Block(embed_dim, num_heads, head_size, block_size, dropout) for _ in range(n_layers)])
         self.final_layer_norm = nn.LayerNorm(embed_dim)
         self.to_logits = nn.Linear(embed_dim, vocab_size)
+
+        # Explicitly initialize the weights as per GPT-2
+        self.base_std = 0.02
+        self.scaled_std = self.base_std / math.sqrt(2 * n_layers)
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """Initialize the weights of the model as per GPT-2"""
+        if isinstance(module, ResidualProjection):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.scaled_std)
+        elif isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.base_std)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=self.base_std)
 
     def forward(self, idx):
         _, T = idx.shape

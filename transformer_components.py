@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+class ResidualProjection(nn.Linear):
+    """Linear layer that projects back to the residual stream"""
+    pass
+
 class AttentionHead(nn.Module):
     def __init__(self, head_size, embed_dim, block_size, dropout=0.0):
         super().__init__()
@@ -32,7 +36,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size, embed_dim, block_size, dropout=0.0):
         super().__init__()
         self.heads = nn.ModuleList([AttentionHead(head_size, embed_dim, block_size, dropout) for _ in range(num_heads)])
-        self.proj = nn.Linear(num_heads * head_size, embed_dim)
+        self.proj = ResidualProjection(num_heads * head_size, embed_dim)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input):
@@ -47,7 +51,7 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(embed_dim, 4 * embed_dim),
             nn.ReLU(),
-            nn.Linear(4 * embed_dim, embed_dim),
+            ResidualProjection(4 * embed_dim, embed_dim),
             nn.Dropout(dropout)
         )
 
