@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from transformer_components import Block, ResidualProjection
+from transformer_components import TransformerBlock, ResidualProjection
 import math
 
 class TransformerLanguageModel(nn.Module):
@@ -17,7 +17,7 @@ class TransformerLanguageModel(nn.Module):
         
         self.token_embedding_table = nn.Embedding(vocab_size, embed_dim)
         self.position_embedding_table = nn.Embedding(block_size, embed_dim)
-        self.blocks = nn.Sequential(*[Block(embed_dim, num_heads, head_size, block_size, dropout) for _ in range(n_layers)])
+        self.blocks = nn.Sequential(*[TransformerBlock(embed_dim, block_size, num_heads, head_size, dropout) for _ in range(n_layers)])
         self.final_layer_norm = nn.LayerNorm(embed_dim)
         self.to_logits = nn.Linear(embed_dim, vocab_size)
 
