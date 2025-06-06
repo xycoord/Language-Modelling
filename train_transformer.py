@@ -29,6 +29,8 @@ max_train_steps = 5000
 eval_interval = 1000
 learning_rate = 3e-4
 
+compile_model = True
+
 # device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using device: {device}')
@@ -61,9 +63,10 @@ model = TransformerLanguageModel(
     dropout=dropout
 ).to(device)
 
-print("compiling the model...")
-model = torch.compile(model)
-print("model compiled")
+if compile_model:
+    print("compiling the model...")
+    model = torch.compile(model)
+    print("model compiled")
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
