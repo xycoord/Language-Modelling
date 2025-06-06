@@ -99,7 +99,7 @@ def train_loop(model, optimizer, train_loader, val_loader):
     """Train the model for a given number of epochs"""
     global_step = 0
     for epoch in range(epochs):
-        progress_bar = tqdm(train_loader, desc=f'Epoch {epoch}', mininterval=0.5)
+        progress_bar = tqdm(train_loader, desc=f'Epoch {epoch}')
 
         for step, batch in enumerate(progress_bar):
             optimizer.zero_grad(set_to_none=True)
