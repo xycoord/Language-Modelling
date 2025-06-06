@@ -2,9 +2,11 @@ import torch
 from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+
 from transformer_language_model import TransformerLanguageModel
 from language_dataset import LanguageDataset
 from char_tokenizer import CharTokenizer
+from mixed_precision import get_autocast_ctx
 
 # hyperparameters
 torch.manual_seed(1337)
@@ -27,13 +29,15 @@ max_train_steps = 5000
 eval_interval = 1000
 learning_rate = 3e-4
 
-
 # device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using device: {device}')
 
-# Enable TF32 for faster training 
+# precision
+# Enable TF32 for faster training (negligible change with bfloat16)
 torch.set_float32_matmul_precision('high')
+# autocast context manager for mixed precision training
+mixed_precision_ctx = get_autocast_ctx(device)
 
 # load data
 with open('input.txt', 'r', encoding='utf-8') as f:
@@ -57,7 +61,7 @@ model = TransformerLanguageModel(
     dropout=dropout
 ).to(device)
 
-print("compiling the model... (takes a ~minute)")
+print("compiling the model...")
 model = torch.compile(model)
 print("model compiled")
 
@@ -68,7 +72,8 @@ def generate_example(model, tokenizer, max_tokens):
 
     model.eval()
     idx = torch.zeros((1,1), dtype=torch.long).to(device)
-    raw_prediction = model.generate(idx, max_new_tokens=max_tokens-1)[0].tolist()
+    with mixed_precision_ctx:
+        raw_prediction = model.generate(idx, max_new_tokens=max_tokens-1)[0].tolist()
     model.train()
     return tokenizer.decode(raw_prediction)
 
@@ -88,9 +93,9 @@ def evaluate_model(model, val_loader):
         context, targets = batch
         context = context.to(device)
         targets = targets.to(device)
-
-        logits = model(context)
-        loss = compute_loss(logits, targets)
+        with mixed_precision_ctx:
+            logits = model(context)
+            loss = compute_loss(logits, targets)
         losses.append(loss.item())
     model.train()
     return torch.tensor(losses).mean().item()
@@ -108,9 +113,9 @@ def train_loop(model, optimizer, train_loader, val_loader):
             context = context.to(device)
             targets = targets.to(device)
 
-            logits = model(context)
-
-            loss = compute_loss(logits, targets)
+            with mixed_precision_ctx:
+                logits = model(context)
+                loss = compute_loss(logits, targets)
 
             loss.backward()
             optimizer.step()
