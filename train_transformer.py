@@ -17,19 +17,23 @@ n_layers = 6
 dropout = 0.2
 
 # data
-split_p = 0.95
+split_p = 0.90
 
 # training
 batch_size = 64
 block_size = 256
 epochs = 1
-eval_interval = 2000
+max_train_steps = 5000
+eval_interval = 1000
 learning_rate = 3e-4
 
 
 # device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using device: {device}')
+
+# Enable TF32 for faster training 
+torch.set_float32_matmul_precision('high')
 
 # load data
 with open('input.txt', 'r', encoding='utf-8') as f:
@@ -52,6 +56,10 @@ model = TransformerLanguageModel(
     n_layers=n_layers,
     dropout=dropout
 ).to(device)
+
+print("compiling the model... (takes a ~minute)")
+model = torch.compile(model)
+print("model compiled")
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -116,6 +124,9 @@ def train_loop(model, optimizer, train_loader, val_loader):
                 print(generate_example(model, tokenizer, max_tokens=block_size))
             
             global_step += 1
+
+            if global_step >= max_train_steps:
+                break
 
         print(generate_example(model, tokenizer, max_tokens=block_size))
 
