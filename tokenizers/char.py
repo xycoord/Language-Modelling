@@ -1,4 +1,6 @@
-class CharTokenizer:
+from .base import BaseTokenizer
+
+class CharTokenizer(BaseTokenizer):
     """
     A tokenizer that converts between strings and tokens.
     Each character is mapped to a unique token.

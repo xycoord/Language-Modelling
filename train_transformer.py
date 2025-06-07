@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from transformer_language_model import TransformerLanguageModel
 from language_dataset import LanguageDataset
-from char_tokenizer import CharTokenizer
+from tokenizers import CharTokenizer
 from mixed_precision import get_autocast_ctx
 
 # hyperparameters

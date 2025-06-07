@@ -4,7 +4,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from bigram_language_model import BigramLanguageModel
 from language_dataset import LanguageDataset
-from char_tokenizer import CharTokenizer
+from tokenizers import CharTokenizer
 
 # hyperparameters
 torch.manual_seed(1337)
