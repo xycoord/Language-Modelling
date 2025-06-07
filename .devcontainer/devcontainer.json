@@ -20,7 +20,7 @@
     }
   },
 
-  "postCreateCommand": "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && pip install numpy matplotlib tiktoken datasets",
+  "postCreateCommand": "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && pip install numpy matplotlib tqdm pytest",
   
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind"
