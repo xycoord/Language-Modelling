@@ -2,14 +2,20 @@ from ..base import BaseTokenizer
 from .utils import count_pairs, merge_pair
 
 import regex as re
-
+from collections import Counter
 
 GPT2_SPLIT_PATTERN = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 GPT4_SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
 
 
-class ChunkedBPETokenizer(BaseTokenizer):
-    """Byte Pair Encoding tokenizer with regex-based text chunking."""
+class OptimizedBPETokenizer(BaseTokenizer):
+    """Byte Pair Encoding tokenizer with regex-based text chunking.
+    
+    Optimisations:
+    - Regex chunking prevents merges across chunk boundaries
+    - Chunk caching during encoding to avoid redundant BPE operations
+    - Chunk deduplication during training for efficiency
+    """
 
     def __init__(self, split_pattern=GPT4_SPLIT_PATTERN):
         """Initialize tokenizer with UTF-8 byte vocabulary (0-255).
@@ -23,12 +29,19 @@ class ChunkedBPETokenizer(BaseTokenizer):
         self.merges = {}
 
     def encode(self, text):
-        """Convert a string to a list of tokens"""
-        chunks = self._preprocess_text(text)
+        """Convert a string to a list of tokens with chunk caching"""
+        chunks = self._preprocess_text_encode(text)
 
         token_seq = []
+        chunk_cache = {}
         for chunk in chunks:
-            token_seq.extend(self._encode_chunk(chunk))
+            text_chunk, byte_chunk = chunk
+            if text_chunk in chunk_cache:
+                token_seq.extend(chunk_cache[text_chunk])
+            else:
+                token_chunk = self._encode_chunk(byte_chunk)
+                token_seq.extend(token_chunk)
+                chunk_cache[text_chunk] = token_chunk
 
         return token_seq
 
@@ -57,6 +70,7 @@ class ChunkedBPETokenizer(BaseTokenizer):
     def train(self, text, target_vocab_size):
         """Learn BPE merges from text to expand vocabulary.
         Merges across chunks are not allowed.
+        Chunks are deduplicated by their text content for efficiency.
         Modifies the tokenizer in-place.
         
         Args:
@@ -67,7 +81,7 @@ class ChunkedBPETokenizer(BaseTokenizer):
         next_token = self.vocab_size
 
         print("Preprocessing text...")
-        chunks = self._preprocess_text(text)
+        chunks = self._preprocess_text_train(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -76,8 +90,8 @@ class ChunkedBPETokenizer(BaseTokenizer):
         while next_token < target_vocab_size:
 
             pair_counts = {}
-            for chunk in chunks:
-                pair_counts.update(count_pairs(chunk, counts=pair_counts))
+            for token_chunk, num_copies in chunks:
+                pair_counts.update(count_pairs(token_chunk, num_copies, pair_counts))
             
             if not pair_counts: 
                 # no more pairs to merge, we're done
@@ -95,7 +109,7 @@ class ChunkedBPETokenizer(BaseTokenizer):
             vocab[new_token] = vocab[most_common_pair[0]] + vocab[most_common_pair[1]]
 
             # merge the most common pair
-            chunks = [merge_pair(chunk, most_common_pair, new_token) for chunk in chunks]
+            chunks = [(merge_pair(token_chunk, most_common_pair, new_token), num_copies) for token_chunk, num_copies in chunks]
 
             next_token += 1
 
@@ -104,10 +118,27 @@ class ChunkedBPETokenizer(BaseTokenizer):
         self.vocab_size = len(vocab)
         print("Training complete")
 
-    def _preprocess_text(self, text):
-        """Convert a string to a list of chunks of tokens (UTF-8 bytes)"""
+    def _preprocess_text_encode(self, text):
+        """Convert a string to a list of chunks of tokens (UTF-8 bytes)
+        Returns:
+            chunks: list of (text_chunk, byte_chunk) tuples
+                    text_chunk: string
+                    byte_chunk: list of UTF-8 bytes
+        """
         text_chunks = re.findall(self.split_regex, text)
-        chunks = [list(chunk.encode("utf-8")) for chunk in text_chunks]
+        chunks = [(text_chunk, list(text_chunk.encode("utf-8"))) for text_chunk in text_chunks]
+        return chunks
+
+    def _preprocess_text_train(self, text):
+        """Convert a string to a list of chunks of tokens (UTF-8 bytes) with chunk deduplication
+        Returns:
+            chunks: list of (byte_chunk, num_copies) tuples
+                    byte_chunk: list of UTF-8 bytes
+                    num_copies: number of copies of the chunk
+        """
+        text_chunks = re.findall(self.split_regex, text)
+        chunk_counts = list(Counter(text_chunks).items())
+        chunks = [(list(chunk_text.encode("utf-8")), num_copies) for chunk_text, num_copies in chunk_counts]
         return chunks
     
     def _postprocess_text(self, byte_sequences):

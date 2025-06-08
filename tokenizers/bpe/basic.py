@@ -90,8 +90,8 @@ class BasicBPETokenizer(BaseTokenizer):
         token_seq = list(text_bytes)
         return token_seq   
     
-    def _postprocess_text(self, token_seq):
-        """Convert a list of tokens (UTF-8 bytes) to a string"""
-        text_bytes = b"".join(token_seq)
+    def _postprocess_text(self, byte_sequences):
+        """Convert a list of UTF-8 byte sequences to a string"""
+        text_bytes = b"".join(byte_sequences)
         text = text_bytes.decode('utf-8', errors='replace')
         return text

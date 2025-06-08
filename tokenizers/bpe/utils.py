@@ -1,13 +1,14 @@
-def count_pairs(token_seq, counts=None):
+def count_pairs(token_seq, num_copies=1, counts=None):
     """Count frequency of adjacent token pairs in sequence.
     Args:
         token_seq: list of tokens
+        num_copies: number of copies of the token_seq chunk
         counts: from previous token_seq (optional)
                 used when chunking
     """
     counts = {} if counts is None else counts
     for pair in zip(token_seq, token_seq[1:]):
-        counts[pair] = counts.get(pair, 0) + 1
+        counts[pair] = counts.get(pair, 0) + num_copies
     return counts
 
 def merge_pair(token_seq, pair, new_token):
