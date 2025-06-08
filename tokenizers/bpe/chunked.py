@@ -1,22 +1,40 @@
 from ..base import BaseTokenizer
 from .utils import count_pairs, merge_pair
 
-class BasicBPETokenizer(BaseTokenizer):
-    """Byte Pair Encoding tokenizer that operates on raw UTF-8 bytes (no chunking)."""
+import regex as re
 
-    def __init__(self):
+
+GPT2_SPLIT_PATTERN = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+GPT4_SPLIT_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
+
+
+class ChunkedBPETokenizer(BaseTokenizer):
+    """Byte Pair Encoding tokenizer with regex-based text chunking."""
+
+    def __init__(self, split_pattern=GPT4_SPLIT_PATTERN):
         """Initialize tokenizer with UTF-8 byte vocabulary (0-255).
         vocab: token -> bytes[]
         merges: token_pair -> new_token
         """
+        self.split_pattern = split_pattern
+        self.split_regex = re.compile(split_pattern)
         self.vocab_size = 256
         self.vocab = {token: bytes([token]) for token in range(self.vocab_size)}
         self.merges = {}
 
     def encode(self, text):
         """Convert a string to a list of tokens"""
-        token_seq = self._preprocess_text(text)
+        chunks = self._preprocess_text(text)
 
+        token_seq = []
+        for chunk in chunks:
+            token_seq.extend(self._encode_chunk(chunk))
+
+        return token_seq
+
+    def _encode_chunk(self, chunk):
+        """Convert a chunk of tokens to a list of tokens"""
+        token_seq = list(chunk)
         while len(token_seq) >= 2:
             pair_counts = count_pairs(token_seq)
 
@@ -29,7 +47,6 @@ class BasicBPETokenizer(BaseTokenizer):
 
         return token_seq
 
-
     def decode(self, tokens):
         """Convert a list of tokens to a string"""
         byte_sequences = [self.vocab[token] for token in tokens]
@@ -39,6 +56,7 @@ class BasicBPETokenizer(BaseTokenizer):
 
     def train(self, text, target_vocab_size):
         """Learn BPE merges from text to expand vocabulary.
+        Merges across chunks are not allowed.
         Modifies the tokenizer in-place.
         
         Args:
@@ -49,7 +67,7 @@ class BasicBPETokenizer(BaseTokenizer):
         next_token = self.vocab_size
 
         print("Preprocessing text...")
-        token_seq = self._preprocess_text(text)
+        chunks = self._preprocess_text(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -57,7 +75,9 @@ class BasicBPETokenizer(BaseTokenizer):
         print("Training...")
         while next_token < target_vocab_size:
 
-            pair_counts = count_pairs(token_seq)
+            pair_counts = {}
+            for chunk in chunks:
+                pair_counts.update(count_pairs(chunk, pair_counts))
             
             if not pair_counts: 
                 # no more pairs to merge, we're done
@@ -75,7 +95,7 @@ class BasicBPETokenizer(BaseTokenizer):
             vocab[new_token] = vocab[most_common_pair[0]] + vocab[most_common_pair[1]]
 
             # merge the most common pair
-            token_seq = merge_pair(token_seq, most_common_pair, new_token)
+            chunks = [merge_pair(chunk, most_common_pair, new_token) for chunk in chunks]
 
             next_token += 1
 
@@ -85,10 +105,10 @@ class BasicBPETokenizer(BaseTokenizer):
         print("Training complete")
 
     def _preprocess_text(self, text):
-        """Convert a string to a list of non-merged tokens (UTF-8 bytes)"""
-        text_bytes = text.encode('utf-8')
-        token_seq = list(text_bytes)
-        return token_seq   
+        """Convert a string to a list of chunks of tokens (UTF-8 bytes)"""
+        text_chunks = re.findall(self.split_regex, text)
+        chunks = [list(chunk.encode("utf-8")) for chunk in text_chunks]
+        return chunks
     
     def _postprocess_text(self, token_seq):
         """Convert a list of tokens (UTF-8 bytes) to a string"""

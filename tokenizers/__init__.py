@@ -2,9 +2,11 @@
 from .base import BaseTokenizer
 from .char import CharTokenizer
 from .bpe.basic import BasicBPETokenizer
+from .bpe.chunked import ChunkedBPETokenizer
 
 __all__ = [
     'BaseTokenizer',
     'CharTokenizer', 
     'BasicBPETokenizer',
+    'ChunkedBPETokenizer',
 ]

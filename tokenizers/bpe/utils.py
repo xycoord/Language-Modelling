@@ -1,6 +1,11 @@
-def count_pairs(token_seq):
-    """Count frequency of adjacent token pairs in sequence."""
-    counts = {}
+def count_pairs(token_seq, counts=None):
+    """Count frequency of adjacent token pairs in sequence.
+    Args:
+        token_seq: list of tokens
+        counts: from previous token_seq (optional)
+                used when chunking
+    """
+    counts = {} if counts is None else counts
     for pair in zip(token_seq, token_seq[1:]):
         counts[pair] = counts.get(pair, 0) + 1
     return counts
