@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from .components import TransformerBlock, ResidualProjection
 import math
+
+# Local imports
+from .components import TransformerBlock, ResidualProjection
 from .config import TransformerConfig
 
 class TransformerLanguageModel(nn.Module):
@@ -36,13 +38,13 @@ class TransformerLanguageModel(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=self.base_std)
 
-    def forward(self, idx):
-        _, T = idx.shape
+    def forward(self, context):
+        _, T = context.shape
 
         # Embed tokens and positions
-        token_embeds = self.token_embedding_table(idx) # (B, T, embed_dim)
-        position_embeds = self.position_embedding_table(torch.arange(T, device=idx.device)) # (T, embed_dim)
-        combined_embeds = token_embeds + position_embeds # (B, T, embed_dim)
+        token_embeds = self.token_embedding_table(context) # (B, T, embed_dim)
+        position_embeds = self.position_embedding_table(torch.arange(T, device=context.device)) # (T, embed_dim)
+        combined_embeds = token_embeds + position_embeds # (B, T, embed_dim) - broadcasts position_embeds across batch
 
         # Apply blocks and final layer norm
         residual_stream = self.blocks(combined_embeds) # (B, T, embed_dim)
@@ -53,13 +55,13 @@ class TransformerLanguageModel(nn.Module):
         
         return logits
 
-    def generate(self, idx, max_new_tokens):
-        """Generate a sequence of tokens from the model"""
-        assert idx.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"
+    def generate(self, context, max_new_tokens):
+        """Generate tokens autoregressively using multinomial sampling."""
+        assert context.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"
         for _ in range(max_new_tokens):
-            logits = self(idx)
+            logits = self(context)
             logits = logits[:, -1, :]
             probs = F.softmax(logits, dim=-1)
-            idx_next = torch.multinomial(probs, num_samples=1)
-            idx = torch.cat((idx, idx_next), dim=1)
-        return idx
+            new_token = torch.multinomial(probs, num_samples=1)
+            context = torch.cat((context, new_token), dim=1)
+        return context

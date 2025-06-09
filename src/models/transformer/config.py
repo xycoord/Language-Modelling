@@ -10,6 +10,8 @@ class TransformerConfig:
     head_size: Optional[int] = None
     n_layers: int = 4
     dropout: float = 0.0
+    # FeedForward: hidden_dim = embed_dim * hidden_multiplier
+    hidden_multiplier: int = 4
     parallel: bool = True
     flash: bool = True
 

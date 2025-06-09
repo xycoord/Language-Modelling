@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import warnings
+
 from .config import TransformerConfig
 
 class ResidualProjection(nn.Linear):
@@ -45,6 +46,10 @@ class Attention(nn.Module):
         return attention_weights @ v
 
 class AttentionHead(nn.Module):
+    """
+    Single attention head that processes a head_size dimensional subspace.
+    Learns Q/K/V projections and computes attention within that subspace.
+    """
     def __init__(self, embed_dim, block_size, head_size, dropout=0.0, flash=True):
         super().__init__()
         self.head_size = head_size
@@ -69,18 +74,21 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, config: TransformerConfig):
         super().__init__()
         self.heads = nn.ModuleList([AttentionHead(config.embed_dim, config.block_size, config.head_size, config.dropout, config.flash) for _ in range(config.num_heads)])
-        self.proj = ResidualProjection(config.num_heads * config.head_size, config.embed_dim)
-        self.dropout = nn.Dropout(config.dropout)
+        self.output_proj = ResidualProjection(config.num_heads * config.head_size, config.embed_dim)
+        self.residual_dropout = nn.Dropout(config.dropout)
 
     def forward(self, input):
         out = torch.cat([head(input) for head in self.heads], dim=-1)
-        out = self.proj(out)
-        out = self.dropout(out)
+        out = self.output_proj(out)
+        out = self.residual_dropout(out)
         return out
     
 class ParallelMultiHeadAttention(nn.Module):
     """
     Multi-head attention that uses a single linear projection to compute Q, K, V.
+
+    - Reduces matrix multiplications from 3*num_heads to 1
+    - Mathematically equivalent to the non-parallel version
     """
     def __init__(self, config: TransformerConfig):
         super().__init__()
@@ -91,31 +99,44 @@ class ParallelMultiHeadAttention(nn.Module):
 
         self.qkv_proj = nn.Linear(config.embed_dim, config.num_heads * config.head_size * 3, bias=False)
         self.attention = Attention(config.block_size, self.head_size, config.dropout, config.flash)
-        self.proj = ResidualProjection(config.num_heads * self.head_size, config.embed_dim)
+        self.output_proj = ResidualProjection(config.num_heads * self.head_size, config.embed_dim)
         self.residual_dropout = nn.Dropout(config.dropout)
 
     def forward(self, input):
         B, T, _ = input.shape
 
-        # Compute Q, K, V using a single linear projection
+        # Compute q, k, and v using a single linear projection
+        # q, k, and v are concatenated along the last dimension
         qkv = self.qkv_proj(input) # (B, T, num_heads * head_size * 3)
         q, k, v = qkv.split(self.num_heads * self.head_size, dim=-1) # (B, T, num_heads * head_size)
         
-        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, num_heads, T, head_size)
-        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, num_heads, T, head_size)
-        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2) # (B, num_heads, T, head_size)
-
+        # Reshape for attention
+        # Attention operates on the (T, head_size) dimensions
+        # (B, num_heads) are batch dimensions processed in parallel
+        # (B, T, num_heads * head_size) -> (B, num_heads, T, head_size)
+        q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+        k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+        v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
+         
         output = self.attention(q, k, v)
 
-        output = output.transpose(1, 2).contiguous().view(B, T, self.num_heads * self.head_size) # (B, T, num_heads * head_size)
-        output = self.proj(output)
+        # Concatenate heads
+        # Transpose creates a non-contiguous tensor, so we need to call contiguous()
+        # (B, num_heads, T, head_size) -> (B, T, num_heads * head_size)
+        output = output.transpose(1, 2).contiguous().view(B, T, self.num_heads * self.head_size)
+        
+        output = self.output_proj(output)
         output = self.residual_dropout(output)
         return output
 
 
 class FeedForward(nn.Module):
-
-    def __init__(self, embed_dim, hidden_multiplier=4, dropout=0.0):
+    """
+    Position-wise feedforward network.
+    Provides non-linear transformations between attention layers, enabling
+    the model to learn complex functions beyond linear attention.
+    """
+    def __init__(self, embed_dim, hidden_multiplier, dropout=0.0):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(embed_dim, hidden_multiplier * embed_dim),
@@ -128,11 +149,15 @@ class FeedForward(nn.Module):
         return self.net(input)
     
 class TransformerBlock(nn.Module):
+    """
+    Standard transformer layer combining multi-head attention with feedforward network.
+    Uses pre-norm architecture (LayerNorm before each sublayer) with residual connections.
+    """
     def __init__(self, config: TransformerConfig):
         super().__init__()
         self.self_attention = ParallelMultiHeadAttention(config) if config.parallel \
                          else MultiHeadAttention(config)
-        self.feed_forward = FeedForward(config.embed_dim, dropout=config.dropout)
+        self.feed_forward = FeedForward(config.embed_dim, config.hidden_multiplier, config.dropout)
         self.layer_norm1 = nn.LayerNorm(config.embed_dim)
         self.layer_norm2 = nn.LayerNorm(config.embed_dim)
 
