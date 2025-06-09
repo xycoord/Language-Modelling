@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import warnings
+from .config import TransformerConfig
 
 class ResidualProjection(nn.Linear):
     """Linear layer that projects back to the residual stream"""
@@ -65,12 +66,11 @@ class MultiHeadAttention(nn.Module):
     """
     Multi-head attention that uses separate AttentionHeads for each head.
     """
-    def __init__(self, embed_dim, block_size, num_heads, head_size=None, dropout=0.0, flash=True):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        head_size = head_size or embed_dim // num_heads
-        self.heads = nn.ModuleList([AttentionHead(embed_dim, block_size, head_size, dropout, flash) for _ in range(num_heads)])
-        self.proj = ResidualProjection(num_heads * head_size, embed_dim)
-        self.dropout = nn.Dropout(dropout)
+        self.heads = nn.ModuleList([AttentionHead(config.embed_dim, config.block_size, config.head_size, config.dropout, config.flash) for _ in range(config.num_heads)])
+        self.proj = ResidualProjection(config.num_heads * config.head_size, config.embed_dim)
+        self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, input):
         out = torch.cat([head(input) for head in self.heads], dim=-1)
@@ -82,17 +82,17 @@ class ParallelMultiHeadAttention(nn.Module):
     """
     Multi-head attention that uses a single linear projection to compute Q, K, V.
     """
-    def __init__(self, embed_dim, block_size, num_heads, head_size=None, dropout=0.0, flash=True):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.block_size = block_size
-        self.num_heads = num_heads
-        self.head_size = head_size or embed_dim // num_heads
+        self.config = config
+        # extract from config for convenience
+        self.num_heads = config.num_heads
+        self.head_size = config.head_size
 
-        self.qkv_proj = nn.Linear(embed_dim, num_heads * head_size * 3, bias=False)
-        self.attention = Attention(block_size, head_size, dropout, flash)
-        self.proj = ResidualProjection(num_heads * head_size, embed_dim)
-        self.residual_dropout = nn.Dropout(dropout)
+        self.qkv_proj = nn.Linear(config.embed_dim, config.num_heads * config.head_size * 3, bias=False)
+        self.attention = Attention(config.block_size, self.head_size, config.dropout, config.flash)
+        self.proj = ResidualProjection(config.num_heads * self.head_size, config.embed_dim)
+        self.residual_dropout = nn.Dropout(config.dropout)
 
     def forward(self, input):
         B, T, _ = input.shape
@@ -128,13 +128,13 @@ class FeedForward(nn.Module):
         return self.net(input)
     
 class TransformerBlock(nn.Module):
-    def __init__(self, embed_dim, block_size, num_heads, head_size, dropout=0.0, flash=True, parallel=True):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.self_attention = ParallelMultiHeadAttention(embed_dim, block_size, num_heads, head_size, dropout, flash) if parallel \
-                         else MultiHeadAttention(embed_dim, block_size, num_heads, head_size, dropout, flash)
-        self.feed_forward = FeedForward(embed_dim, dropout=dropout)
-        self.layer_norm1 = nn.LayerNorm(embed_dim)
-        self.layer_norm2 = nn.LayerNorm(embed_dim)
+        self.self_attention = ParallelMultiHeadAttention(config) if config.parallel \
+                         else MultiHeadAttention(config)
+        self.feed_forward = FeedForward(config.embed_dim, dropout=config.dropout)
+        self.layer_norm1 = nn.LayerNorm(config.embed_dim)
+        self.layer_norm2 = nn.LayerNorm(config.embed_dim)
 
     def forward(self, residual_stream):
         residual_stream = residual_stream + self.self_attention(self.layer_norm1(residual_stream))

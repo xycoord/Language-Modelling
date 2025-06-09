@@ -3,7 +3,7 @@ from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from models.transformer import TransformerLanguageModel
+from models.transformer import TransformerLanguageModel, TransformerConfig
 from datasets.language_dataset import LanguageDataset
 from tokenizers import CharTokenizer
 from utils.mixed_precision import get_autocast_ctx
@@ -54,7 +54,7 @@ val_dataset = LanguageDataset(text, tokenizer, split='val', train_split=0.9, blo
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
 
-model = TransformerLanguageModel(
+transformer_config = TransformerConfig(
     vocab_size=tokenizer.vocab_size,
     block_size=block_size,
     embed_dim=embed_dim,
@@ -62,7 +62,8 @@ model = TransformerLanguageModel(
     head_size=head_size,
     n_layers=n_layers,
     dropout=dropout
-).to(device)
+)
+model = TransformerLanguageModel(transformer_config).to(device)
 
 if compile_model:
     print("compiling the model...")

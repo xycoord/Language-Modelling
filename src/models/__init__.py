@@ -1,5 +1,5 @@
 from .bigram import BigramLanguageModel
-from .transformer import TransformerLanguageModel
+from .transformer.model import TransformerLanguageModel
 
 __all__ = [
     "BigramLanguageModel",

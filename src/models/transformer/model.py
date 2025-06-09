@@ -1,29 +1,28 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from .transformer_components import TransformerBlock, ResidualProjection
+from .components import TransformerBlock, ResidualProjection
 import math
+from .config import TransformerConfig
 
 class TransformerLanguageModel(nn.Module):
     """
     A transformer language model that predicts the next token in a sequence.
     """
 
-    def __init__(self, vocab_size, block_size, embed_dim=32, num_heads=4, head_size=8, n_layers=4, dropout=0.0):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.vocab_size = vocab_size
-        self.block_size = block_size
-        self.embed_dim = embed_dim
+        self.config = config
         
-        self.token_embedding_table = nn.Embedding(vocab_size, embed_dim)
-        self.position_embedding_table = nn.Embedding(block_size, embed_dim)
-        self.blocks = nn.Sequential(*[TransformerBlock(embed_dim, block_size, num_heads, head_size, dropout) for _ in range(n_layers)])
-        self.final_layer_norm = nn.LayerNorm(embed_dim)
-        self.to_logits = nn.Linear(embed_dim, vocab_size)
+        self.token_embedding_table = nn.Embedding(config.vocab_size, config.embed_dim)
+        self.position_embedding_table = nn.Embedding(config.block_size, config.embed_dim)
+        self.blocks = nn.Sequential(*[TransformerBlock(config) for _ in range(config.n_layers)])
+        self.final_layer_norm = nn.LayerNorm(config.embed_dim)
+        self.to_logits = nn.Linear(config.embed_dim, config.vocab_size)
 
         # Explicitly initialize the weights as per GPT-2
         self.base_std = 0.02
-        self.scaled_std = self.base_std / math.sqrt(2 * n_layers)
+        self.scaled_std = self.base_std / math.sqrt(2 * config.n_layers)
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -56,7 +55,7 @@ class TransformerLanguageModel(nn.Module):
 
     def generate(self, idx, max_new_tokens):
         """Generate a sequence of tokens from the model"""
-        assert idx.shape[1] + max_new_tokens <= self.block_size, "Cannot generate more tokens than the block size"
+        assert idx.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"
         for _ in range(max_new_tokens):
             logits = self(idx)
             logits = logits[:, -1, :]
