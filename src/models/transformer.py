@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from transformer_components import TransformerBlock, ResidualProjection
+from .transformer_components import TransformerBlock, ResidualProjection
 import math
 
 class TransformerLanguageModel(nn.Module):
