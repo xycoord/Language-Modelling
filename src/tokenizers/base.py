@@ -1,11 +1,16 @@
-class BaseTokenizer:
+from abc import ABC, abstractmethod
+from typing import TypeAlias
+
+Token: TypeAlias = int
+
+class Tokenizer(ABC):
     def __init__(self):
         self.vocab_size = 0
+    
+    @abstractmethod
+    def encode(self, text: str) -> list[Token]:
+        pass
 
-    def encode(self, text):
-        """Convert a string to a list of tokens"""
-        raise NotImplementedError
-
-    def decode(self, tokens):
-        """Convert a list of tokens to a string"""
-        raise NotImplementedError
+    @abstractmethod
+    def decode(self, tokens: list[Token]) -> str:
+        pass

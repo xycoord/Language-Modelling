@@ -1,7 +1,7 @@
 import torch
-from contextlib import nullcontext
+from contextlib import nullcontext, ContextManager
 
-def get_autocast_ctx(device):
+def get_autocast_ctx(device: str) -> ContextManager[None]:
     """
     Returns autocast context for bfloat16 mixed precision if supported, otherwise nullcontext.
     Prints the precision type being used.

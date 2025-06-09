@@ -1,10 +1,11 @@
 import torch
+from torch import Tensor
 from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from models.bigram import BigramLanguageModel
 from datasets.language_dataset import LanguageDataset
-from tokenizers import CharTokenizer
+from tokenizers import CharTokenizer, Tokenizer
 
 # hyperparameters
 torch.manual_seed(1337)
@@ -33,7 +34,7 @@ val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_
 model = BigramLanguageModel(tokenizer.vocab_size).to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-def generate_example(model, tokenizer, max_new_tokens=50):
+def generate_example(model: BigramLanguageModel, tokenizer: Tokenizer, max_new_tokens: int = 50) -> str:
     """Generate a single example from the model"""
 
     model.eval()
@@ -42,7 +43,7 @@ def generate_example(model, tokenizer, max_new_tokens=50):
     model.train()
     return tokenizer.decode(raw_prediction)
 
-def compute_loss(logits, targets):
+def compute_loss(logits: Tensor, targets: Tensor) -> Tensor:
     """Compute the loss for a batch of logits and targets"""
     batch_size, block_size, vocab_size = logits.shape
     logits = logits.view(batch_size*block_size, vocab_size)
@@ -50,7 +51,7 @@ def compute_loss(logits, targets):
     return F.cross_entropy(logits, targets)
 
 @torch.no_grad()
-def evaluate_model(model, val_loader):
+def evaluate_model(model: BigramLanguageModel, val_loader: DataLoader) -> float:
     """Evaluate the model on the validation set"""
     model.eval()
     losses = []
@@ -64,7 +65,13 @@ def evaluate_model(model, val_loader):
     model.train()
     return torch.tensor(losses).mean().item()
 
-def train_loop(model, optimizer, train_loader, val_loader):
+def train_loop(
+        model: BigramLanguageModel, 
+        optimizer: torch.optim.Optimizer, 
+        train_loader: DataLoader, 
+        val_loader: DataLoader,
+        device: str
+        ) -> float:
     """Train the model for a given number of epochs"""
     global_step = 0
     for epoch in range(epochs):

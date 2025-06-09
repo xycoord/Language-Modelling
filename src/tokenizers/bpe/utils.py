@@ -1,4 +1,9 @@
-def count_pairs(token_seq, num_copies=1, counts=None):
+from typing import Optional
+from ..base import Token
+
+def count_pairs(token_seq: list[Token], num_copies: int = 1, 
+                counts: Optional[dict[tuple[Token, Token], int]] = None
+                ) -> dict[tuple[Token, Token], int]:
     """Count frequency of adjacent token pairs in sequence.
     Args:
         token_seq: list of tokens
@@ -11,7 +16,7 @@ def count_pairs(token_seq, num_copies=1, counts=None):
         counts[pair] = counts.get(pair, 0) + num_copies
     return counts
 
-def merge_pair(token_seq, pair, new_token):
+def merge_pair(token_seq: list[Token], pair: tuple[Token, Token], new_token: Token) -> list[Token]:
     """Replace all occurrences of pair with new_token in sequence."""
     new_token_seq = []
     i = 0

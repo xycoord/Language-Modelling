@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torch.nn import functional as F
 import warnings
 
@@ -13,7 +14,7 @@ class Attention(nn.Module):
     """
     Attention mechanism that can use flash attention if available.
     """
-    def __init__(self, block_size, head_size, dropout=0.0, flash=True):
+    def __init__(self, block_size: int, head_size: int, dropout: float = 0.0, flash: bool = True):
         super().__init__()
         self.dropout = dropout
         self.head_size = head_size
@@ -30,7 +31,7 @@ class Attention(nn.Module):
             self.register_buffer('causal_mask', torch.tril(torch.ones(block_size, block_size)))
             self.attention_dropout = nn.Dropout(dropout)
 
-    def forward(self, q, k, v):
+    def forward(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
         if self.flash:
             return F.scaled_dot_product_attention(q, k, v, 
                 attn_mask = None, 
@@ -50,7 +51,7 @@ class AttentionHead(nn.Module):
     Single attention head that processes a head_size dimensional subspace.
     Learns Q/K/V projections and computes attention within that subspace.
     """
-    def __init__(self, embed_dim, block_size, head_size, dropout=0.0, flash=True):
+    def __init__(self, embed_dim: int, block_size: int, head_size: int, dropout: float = 0.0, flash: bool = True):
         super().__init__()
         self.head_size = head_size
         self.query_proj = nn.Linear(embed_dim, head_size, bias=False)
@@ -58,7 +59,7 @@ class AttentionHead(nn.Module):
         self.value_proj = nn.Linear(embed_dim, head_size, bias=False)
         self.attention = Attention(block_size, head_size, dropout, flash)
 
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         q = self.query_proj(input)
         k = self.key_proj(input)
         v = self.value_proj(input)
@@ -77,7 +78,7 @@ class MultiHeadAttention(nn.Module):
         self.output_proj = ResidualProjection(config.num_heads * config.head_size, config.embed_dim)
         self.residual_dropout = nn.Dropout(config.dropout)
 
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         out = torch.cat([head(input) for head in self.heads], dim=-1)
         out = self.output_proj(out)
         out = self.residual_dropout(out)
@@ -102,7 +103,7 @@ class ParallelMultiHeadAttention(nn.Module):
         self.output_proj = ResidualProjection(config.num_heads * self.head_size, config.embed_dim)
         self.residual_dropout = nn.Dropout(config.dropout)
 
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         B, T, _ = input.shape
 
         # Compute q, k, and v using a single linear projection
@@ -136,7 +137,7 @@ class FeedForward(nn.Module):
     Provides non-linear transformations between attention layers, enabling
     the model to learn complex functions beyond linear attention.
     """
-    def __init__(self, embed_dim, hidden_multiplier, dropout=0.0):
+    def __init__(self, embed_dim: int, hidden_multiplier: int, dropout: float = 0.0):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(embed_dim, hidden_multiplier * embed_dim),
@@ -145,7 +146,7 @@ class FeedForward(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         return self.net(input)
     
 class TransformerBlock(nn.Module):
@@ -161,7 +162,7 @@ class TransformerBlock(nn.Module):
         self.layer_norm1 = nn.LayerNorm(config.embed_dim)
         self.layer_norm2 = nn.LayerNorm(config.embed_dim)
 
-    def forward(self, residual_stream):
+    def forward(self, residual_stream: Tensor) -> Tensor:
         residual_stream = residual_stream + self.self_attention(self.layer_norm1(residual_stream))
         residual_stream = residual_stream + self.feed_forward(self.layer_norm2(residual_stream))
         return residual_stream

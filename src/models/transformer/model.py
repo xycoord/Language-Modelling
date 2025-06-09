@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torch.nn import functional as F
 import math
 
@@ -27,7 +28,7 @@ class TransformerLanguageModel(nn.Module):
         self.scaled_std = self.base_std / math.sqrt(2 * config.n_layers)
         self.apply(self._init_weights)
 
-    def _init_weights(self, module):
+    def _init_weights(self, module: nn.Module):
         """Initialize the weights of the model as per GPT-2"""
         if isinstance(module, ResidualProjection):
             torch.nn.init.normal_(module.weight, mean=0.0, std=self.scaled_std)
@@ -38,7 +39,7 @@ class TransformerLanguageModel(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=self.base_std)
 
-    def forward(self, context):
+    def forward(self, context: Tensor) -> Tensor:
         _, T = context.shape
 
         # Embed tokens and positions
@@ -55,7 +56,7 @@ class TransformerLanguageModel(nn.Module):
         
         return logits
 
-    def generate(self, context, max_new_tokens):
+    def generate(self, context: Tensor, max_new_tokens: int) -> Tensor:
         """Generate tokens autoregressively using multinomial sampling."""
         assert context.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"
         for _ in range(max_new_tokens):

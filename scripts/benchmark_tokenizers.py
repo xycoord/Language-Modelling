@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
 import time
 
-from tokenizers import BasicBPETokenizer, ChunkedBPETokenizer, OptimizedBPETokenizer
+from tokenizers import BasicBPETokenizer, ChunkedBPETokenizer, OptimizedBPETokenizer, Tokenizer
 
 # load data
 with open('data/shakespeare.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
-def benchmark_tokenizer_with_vocab_size(tokenizer, text, name, vocab_size):
+def benchmark_tokenizer_with_vocab_size(tokenizer: Tokenizer, text: str, name: str, vocab_size: int):
     """Modified version that accepts vocab_size as parameter"""
     print(f"Benchmarking {name} tokenizer with vocab_size={vocab_size}")
     

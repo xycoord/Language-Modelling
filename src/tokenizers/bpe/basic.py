@@ -1,7 +1,8 @@
-from ..base import BaseTokenizer
+from ..base import Tokenizer, Token
 from .utils import count_pairs, merge_pair
 
-class BasicBPETokenizer(BaseTokenizer):
+
+class BasicBPETokenizer(Tokenizer):
     """Byte Pair Encoding tokenizer that operates on raw UTF-8 bytes (no chunking)."""
 
     def __init__(self):
@@ -13,7 +14,7 @@ class BasicBPETokenizer(BaseTokenizer):
         self.vocab = {token: bytes([token]) for token in range(self.vocab_size)}
         self.merges = {}
 
-    def encode(self, text):
+    def encode(self, text: str) -> list[Token]:
         """Convert a string to a list of tokens"""
         token_seq = self._preprocess_text(text)
 
@@ -30,14 +31,14 @@ class BasicBPETokenizer(BaseTokenizer):
         return token_seq
 
 
-    def decode(self, tokens):
+    def decode(self, tokens: list[Token]) -> str:
         """Convert a list of tokens to a string"""
         byte_sequences = [self.vocab[token] for token in tokens]
         text = self._postprocess_text(byte_sequences)
         return text
 
 
-    def train(self, text, target_vocab_size):
+    def train(self, text: str, target_vocab_size: int):
         """Learn BPE merges from text to expand vocabulary.
         Modifies the tokenizer in-place.
         
@@ -84,13 +85,13 @@ class BasicBPETokenizer(BaseTokenizer):
         self.vocab_size = len(vocab)
         print("Training complete")
 
-    def _preprocess_text(self, text):
+    def _preprocess_text(self, text: str) -> list[Token]:
         """Convert a string to a list of non-merged tokens (UTF-8 bytes)"""
         text_bytes = text.encode('utf-8')
         token_seq = list(text_bytes)
         return token_seq   
     
-    def _postprocess_text(self, byte_sequences):
+    def _postprocess_text(self, byte_sequences: list[bytes]) -> str:
         """Convert a list of UTF-8 byte sequences to a string"""
         text_bytes = b"".join(byte_sequences)
         text = text_bytes.decode('utf-8', errors='replace')
