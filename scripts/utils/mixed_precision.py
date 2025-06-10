@@ -1,5 +1,6 @@
 import torch
-from contextlib import nullcontext, ContextManager
+from contextlib import nullcontext
+from typing import ContextManager
 
 def get_autocast_ctx(device: str) -> ContextManager[None]:
     """
@@ -12,5 +13,5 @@ def get_autocast_ctx(device: str) -> ContextManager[None]:
         print(f'Using mixed precision type: {mixed_precision_type}')
     else:
         autocast_ctx = nullcontext()
-        print(f'Using full precision: float32')
+        print('Using full precision: float32')
     return autocast_ctx

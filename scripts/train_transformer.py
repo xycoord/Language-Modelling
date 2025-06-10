@@ -84,7 +84,11 @@ def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_
     return tokenizer.decode(raw_prediction)
 
 def compute_loss(logits: Tensor, targets: Tensor) -> Tensor:
-    """Compute the loss for a batch of logits and targets"""
+    """Compute the cross entropy loss for a batch of logits and targets
+    logits: (B, T, vocab_size)
+    targets: (B, T)
+    returns: (1)
+    """
     batch_size, block_size, vocab_size = logits.shape
     logits = logits.view(batch_size*block_size, vocab_size)
     targets = targets.view(batch_size*block_size)
@@ -110,8 +114,7 @@ def train_loop(
         model: TransformerLanguageModel, 
         optimizer: torch.optim.Optimizer, 
         train_loader: DataLoader, 
-        val_loader: DataLoader,
-        device: str
+        val_loader: DataLoader
         ) -> float:
     """Train the model for a given number of epochs"""
     global_step = 0
@@ -122,11 +125,11 @@ def train_loop(
             optimizer.zero_grad(set_to_none=True)
 
             context, targets = batch
-            context = context.to(device)
-            targets = targets.to(device)
+            context = context.to(device) # (B, T)
+            targets = targets.to(device) # (B, T)
 
             with mixed_precision_ctx:
-                logits = model(context)
+                logits = model(context) # (B, T, vocab_size)
                 loss = compute_loss(logits, targets)
 
             loss.backward()

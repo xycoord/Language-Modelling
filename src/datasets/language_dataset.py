@@ -2,36 +2,65 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from ..tokenizers.base import Tokenizer
+from tokenizers.base import Tokenizer
 
 class LanguageDataset(Dataset):
     """
-    A dataset that returns a batch of data for training a language model.
+    Dataset for autoregressive language model training that tokenizes input text.
+    Splits the data into train and val sets, preserving temporal order.
+    Creates sliding windows of token sequences for next-token prediction.
     """
     def __init__(self, 
                  data_text: str, 
-                 tokenizer: Tokenizer, 
+                 tokenizer: Tokenizer,
                  split: str = 'train', 
                  train_split: float = 0.9, 
                  block_size: int = 8, 
-                 device: str = 'cpu'):
+                ):
         self.block_size = block_size
         self.tokenizer = tokenizer
-        self.device = device
-        # encode data
+
+        # Parameter validation
+        if split not in ('train', 'val'):
+            raise ValueError(f"Invalid split: {split}. Must be 'train' or 'val'.")
+        if train_split < 0 or train_split > 1:
+            raise ValueError(f"Invalid train_split: {train_split}. Must be between 0 and 1.")
+        if split == 'val' and train_split == 1:
+            raise ValueError("train_split cannot be 1 when split is 'val'.")
+        if block_size < 1:
+            raise ValueError(f"Invalid block_size: {block_size}. Must be greater than 0.")
+        
         data = torch.tensor(self.tokenizer.encode(data_text), dtype=torch.long)
-        # split data into train and val
-        split_n = int(train_split * len(data))
-        self.data = data[:split_n] if split == 'train' else data[split_n:]
-        self.data = self.data.to(self.device)
+        if len(data) <= block_size:
+            raise ValueError(f"Data too short: {len(data)} tokens, need > {block_size}")
+
+        train_end_idx = int(train_split * len(data))
+        if split == 'train':
+            self.data = data[:train_end_idx]
+        elif split == 'val':
+            self.data = data[train_end_idx:]
 
     def __len__(self) -> int:
         return len(self.data) - self.block_size
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor]:
-        x = self.data[idx : idx+self.block_size]
-        y = self.data[idx+1 : idx+self.block_size+1]
-        return x, y
+    def __getitem__(self, index: int) -> tuple[Tensor, Tensor]:
+        """
+        Returns an (inputs, targets) pair for autoregressive training.
+        
+        target[t] is the next token after input[:t+1], enabling the model
+        to learn next-token prediction at each position simultaneously.
+        
+        Args:
+            index: Starting position in the token sequence
+            
+        Returns:
+            inputs - (block_size,)
+            targets - (block_size,)
+        """
+        inputs = self.data[index : index+self.block_size]
+        targets = self.data[index+1 : index+self.block_size+1]
+        return inputs, targets
 
+    @property
     def vocab_size(self) -> int:
         return self.tokenizer.vocab_size
