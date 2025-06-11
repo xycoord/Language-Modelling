@@ -19,8 +19,10 @@
       }
     }
   },
-
-  "postCreateCommand": "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && pip install numpy matplotlib tqdm pytest pyyaml",
+  "containerEnv": {
+    "PIP_ROOT_USER_ACTION": "ignore"
+  },
+  "postCreateCommand": "pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -e .[dev] && pip install -e .[dev]",
   
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind"

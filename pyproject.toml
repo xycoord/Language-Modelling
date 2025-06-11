@@ -13,12 +13,12 @@ dependencies = [
     "torch>=2.0.0",
     "tqdm",
     "regex",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=6.0.0",
-    "pytest-benchmark",
     "matplotlib",
 ]
 
