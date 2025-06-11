@@ -2,16 +2,29 @@ import torch
 from contextlib import nullcontext
 from typing import ContextManager
 
-def get_autocast_ctx(device: str) -> ContextManager[None]:
+from .config_loader import Config
+
+def setup_precision(config: Config) -> None:
     """
-    Returns autocast context for bfloat16 mixed precision if supported, otherwise nullcontext.
-    Prints the precision type being used.
+    One-time setup of precision settings. Call once at startup.
     """
-    if device == 'cuda' and torch.cuda.is_bf16_supported():
-        mixed_precision_type = torch.bfloat16
-        autocast_ctx = torch.amp.autocast(device_type=device, dtype=mixed_precision_type)
-        print(f'Using mixed precision type: {mixed_precision_type}')
+    if config.device == 'cuda':
+        torch.set_float32_matmul_precision('high')
+        
+        if config.mixed_precision and torch.cuda.is_bf16_supported():
+            print('Using mixed precision: bfloat16 with TF32 matmul')
+        else:
+            print('Using precision: float32 with TF32 matmul')
     else:
-        autocast_ctx = nullcontext()
-        print('Using full precision: float32')
-    return autocast_ctx
+        torch.set_float32_matmul_precision('highest')
+        print('Using precision: float32 (CPU)')
+
+
+def get_autocast_ctx(config: Config) -> ContextManager[None]:
+    """
+    Returns autocast context for mixed precision if configured and supported.
+    """
+    if config.mixed_precision and config.device == 'cuda' and torch.cuda.is_bf16_supported():
+        return torch.amp.autocast(device_type=config.device, dtype=torch.bfloat16)
+    else:
+        return nullcontext()

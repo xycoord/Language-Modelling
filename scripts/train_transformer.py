@@ -1,84 +1,23 @@
 import torch
 from torch import Tensor
 from torch.nn import functional as F
-from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from models.transformer import TransformerLanguageModel, TransformerConfig
+from tqdm import tqdm
+from pathlib import Path
+
+from models.transformer import TransformerLanguageModel
 from datasets.language_dataset import LanguageDataset
 from tokenizers import CharTokenizer, Tokenizer
-from utils.mixed_precision import get_autocast_ctx
 
-# hyperparameters
-torch.manual_seed(1337)
+from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
 
-# model
-embed_dim = 384
-num_heads = 6
-head_size = embed_dim // num_heads
-n_layers = 6
-dropout = 0.2
 
-# data
-train_split = 0.90
-
-# training
-batch_size = 64
-block_size = 256
-epochs = 1
-max_train_steps = 5000
-eval_interval = 1000
-example_interval = 1000
-learning_rate = 3e-4
-training_data_path = 'data/shakespeare.txt'
-
-compile_model = True
-
-# device
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(f'Using device: {device}')
-
-# precision
-# Enable TF32 for faster training (negligible change with bfloat16)
-torch.set_float32_matmul_precision('high')
-# autocast context manager for mixed precision training
-mixed_precision_ctx = get_autocast_ctx(device)
-
-# load data
-with open(training_data_path, 'r', encoding='utf-8') as f:
-    text = f.read()
-
-tokenizer = CharTokenizer(text)
-    
-train_dataset = LanguageDataset(text, tokenizer, split='train', train_split=train_split, block_size=block_size)
-val_dataset = LanguageDataset(text, tokenizer, split='val', train_split=train_split, block_size=block_size)
-
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-
-transformer_config = TransformerConfig(
-    vocab_size=tokenizer.vocab_size,
-    block_size=block_size,
-    embed_dim=embed_dim,
-    num_heads=num_heads,
-    head_size=head_size,
-    n_layers=n_layers,
-    dropout=dropout
-)
-model = TransformerLanguageModel(transformer_config).to(device)
-
-if compile_model:
-    print("compiling the model...")
-    model = torch.compile(model)
-    print("model compiled")
-
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-
-def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_tokens: int) -> str:
+def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_tokens: int, config: Config) -> str:
     """Generate a single example from the model"""
-
+    mixed_precision_ctx = get_autocast_ctx(config)
     model.eval()
-    idx = torch.zeros((1,1), dtype=torch.long).to(device)
+    idx = torch.zeros((1,1), dtype=torch.long).to(model.device)
     with mixed_precision_ctx:
         raw_prediction = model.generate(idx, max_new_tokens=max_tokens-1)[0].tolist()
     model.train()
@@ -96,14 +35,15 @@ def compute_loss(logits: Tensor, targets: Tensor) -> Tensor:
     return F.cross_entropy(logits, targets)
 
 @torch.no_grad()
-def evaluate_model(model: TransformerLanguageModel, val_loader: DataLoader) -> float:
+def evaluate_model(model: TransformerLanguageModel, val_loader: DataLoader, config: Config) -> float:
     """Evaluate the model on the validation set"""
+    mixed_precision_ctx = get_autocast_ctx(config)
     model.eval()
     losses = []
     for batch in val_loader:
         context, targets = batch
-        context = context.to(device)
-        targets = targets.to(device)
+        context = context.to(model.device)
+        targets = targets.to(model.device)
         with mixed_precision_ctx:
             logits = model(context)
             loss = compute_loss(logits, targets)
@@ -115,18 +55,23 @@ def train_loop(
         model: TransformerLanguageModel, 
         optimizer: torch.optim.Optimizer, 
         train_loader: DataLoader, 
-        val_loader: DataLoader
+        val_loader: DataLoader,
+        tokenizer: Tokenizer,
+        config: Config
         ) -> float:
     """Train the model for a given number of epochs"""
     global_step = 0
 
-    val_loss = evaluate_model(model, val_loader)
+    val_loss = evaluate_model(model, val_loader, config)
     print(f'Validation loss: {val_loss}, global_step: {global_step}')
 
-    print(f'Training for {max_train_steps} steps')
-    for epoch in range(epochs):
+    # autocast context manager for mixed precision training
+    mixed_precision_ctx = get_autocast_ctx(config)
 
-        remaining_steps = max_train_steps - global_step
+    print(f'Training for {config.max_train_steps} steps')
+    for epoch in range(config.epochs):
+
+        remaining_steps = config.max_train_steps - global_step
         steps_this_epoch = min(len(train_loader), remaining_steps)
         if steps_this_epoch <= 0:
             break
@@ -137,8 +82,8 @@ def train_loop(
             optimizer.zero_grad(set_to_none=True)
 
             context, targets = batch
-            context = context.to(device) # (B, T)
-            targets = targets.to(device) # (B, T)
+            context = context.to(model.device) # (B, T)
+            targets = targets.to(model.device) # (B, T)
 
             with mixed_precision_ctx:
                 logits = model(context) # (B, T, vocab_size)
@@ -152,16 +97,16 @@ def train_loop(
 
             progress_bar.set_postfix(loss=loss.item(), global_step=global_step)
 
-            if global_step % eval_interval == 0 or global_step == max_train_steps:
-                val_loss = evaluate_model(model, val_loader)
+            if global_step % config.eval_interval == 0 or global_step == config.max_train_steps:
+                val_loss = evaluate_model(model, val_loader, config)
                 print(f'Validation loss: {val_loss}, global_step: {global_step}')
 
-            if global_step % example_interval == 0 or global_step == max_train_steps:
+            if global_step % config.example_interval == 0 or global_step == config.max_train_steps:
                 print("================================================")
-                print(generate_example(model, tokenizer, max_tokens=block_size))
+                print(generate_example(model, tokenizer, max_tokens=config.block_size, config=config))
                 print("================================================")
             
-            if global_step >= max_train_steps:
+            if global_step >= config.max_train_steps:
                 break
 
         progress_bar.close()
@@ -169,5 +114,46 @@ def train_loop(
     return loss.item()
 
 
-loss = train_loop(model, optimizer, train_loader, val_loader)
-print(f'Final loss: {loss}')
+def main():
+    parser = ArgsParser()
+    config_path, overrides = parser.parse_config_args()
+    config = Config.from_file(config_path, overrides)
+
+    torch.manual_seed(config.seed)
+    config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'Using device: {config.device}')
+
+    setup_precision(config)
+
+    # load data
+    data_path = Path(config.data_dir) / 'shakespeare.txt'
+    with open(data_path, 'r', encoding='utf-8') as f:
+        text = f.read()
+
+    tokenizer = CharTokenizer(text)
+        
+    train_dataset = LanguageDataset(text, tokenizer, split='train', 
+                                    train_split=config.train_split, 
+                                    block_size=config.block_size)
+    val_dataset = LanguageDataset(text, tokenizer, split='val', 
+                                  train_split=config.train_split, 
+                                  block_size=config.block_size)
+
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True)
+
+    model = TransformerLanguageModel(config.model_config_typed).to(config.device)
+
+    if config.compile_model:
+        print("compiling the model...")
+        model = torch.compile(model)
+        print("model compiled")
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
+
+    final_loss = train_loop(model, optimizer, train_loader, val_loader, tokenizer, config)
+    print(f'Final loss: {final_loss}')
+
+
+if __name__ == "__main__":
+    main()

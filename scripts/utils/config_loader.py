@@ -32,21 +32,24 @@ class Config:
     model_config: Dict[str, Any]
     
     # Training
+    seed: int
     learning_rate: float
     batch_size: int
     block_size: int
     vocab_size: int
     epochs: int
-    max_train_steps: int
     eval_interval: int
     example_interval: int
     train_split: float
     
     # System
-    data_path: str
+    data_dir: str
     output_dir: str
-    compile_model: bool
-    mixed_precision: bool
+
+    # Optional (with defaults)
+    max_train_steps: Optional[int] = None
+    compile_model: bool = False
+    mixed_precision: bool = False
 
     @classmethod
     def from_file(cls, config_path: str, overrides: Optional[Dict[str, Any]] = None) -> 'Config':

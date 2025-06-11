@@ -1,6 +1,7 @@
 experiment_name: "small_transformer"
 
-learning_rate: 3e-4
+seed: 1337
+learning_rate: 3.0e-4
 batch_size: 64
 epochs: 1
 block_size: 64
@@ -8,8 +9,8 @@ vocab_size: 65
 max_train_steps: 5000
 eval_interval: 1000
 example_interval: 1000
-train_split: 0.90
-compile_model: true
+train_split: 0.999
+compile_model: false
 mixed_precision: true
 
 inherits:

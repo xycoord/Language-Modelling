@@ -1,0 +1,4 @@
+model_type: "bigram"
+
+model_config:
+  vocab_size: 65

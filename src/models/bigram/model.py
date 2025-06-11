@@ -26,3 +26,7 @@ class BigramLanguageModel(nn.Module):
             new_token = torch.multinomial(probs, num_samples=1)
             context = torch.cat((context, new_token), dim=1)
         return context
+    
+    @property
+    def device(self) -> str:
+        return next(self.parameters()).device

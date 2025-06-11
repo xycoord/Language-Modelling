@@ -1,5 +1,4 @@
-from utils.config_loader import Config
-from utils.args_parser import ArgsParser
+from utils import Config, ArgsParser
 
 def main():
     parser = ArgsParser()

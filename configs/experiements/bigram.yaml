@@ -1,0 +1,18 @@
+experiment_name: "bigram"
+
+seed: 1337
+batch_size: 32
+block_size: 8
+vocab_size: 65
+epochs: 1
+learning_rate: 1.0e-3
+eval_interval: 5000
+example_interval: 5000
+train_split: 0.9
+
+inherits:
+  - configs/base/system/laptop.yaml
+  - configs/base/model_architectures/bigram.yaml
+
+
+
