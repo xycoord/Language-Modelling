@@ -20,7 +20,7 @@
     }
   },
 
-  "postCreateCommand": "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && pip install numpy matplotlib tqdm pytest",
+  "postCreateCommand": "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && pip install numpy matplotlib tqdm pytest pyyaml",
   
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind"

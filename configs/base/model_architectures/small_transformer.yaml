@@ -1,0 +1,11 @@
+model_type: "transformer"
+
+model_config:
+  vocab_size: 65
+  embed_dim: 32
+  num_heads: 4
+  n_layers: 3
+  dropout: 0.1
+  hidden_multiplier: 4
+  parallel: true
+  flash: true
