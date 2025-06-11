@@ -56,6 +56,7 @@ class TransformerLanguageModel(nn.Module):
         
         return logits
 
+    @torch.no_grad()
     def generate(self, context: Tensor, max_new_tokens: int) -> Tensor:
         """Generate tokens autoregressively using multinomial sampling."""
         assert context.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"

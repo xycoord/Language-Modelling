@@ -20,7 +20,7 @@ n_layers = 6
 dropout = 0.2
 
 # data
-split_p = 0.90
+train_split = 0.90
 
 # training
 batch_size = 64
@@ -28,6 +28,7 @@ block_size = 256
 epochs = 1
 max_train_steps = 5000
 eval_interval = 1000
+example_interval = 1000
 learning_rate = 3e-4
 training_data_path = 'data/shakespeare.txt'
 
@@ -49,8 +50,8 @@ with open(training_data_path, 'r', encoding='utf-8') as f:
 
 tokenizer = CharTokenizer(text)
     
-train_dataset = LanguageDataset(text, tokenizer, split='train', train_split=0.9, block_size=block_size)
-val_dataset = LanguageDataset(text, tokenizer, split='val', train_split=0.9, block_size=block_size)
+train_dataset = LanguageDataset(text, tokenizer, split='train', train_split=train_split, block_size=block_size)
+val_dataset = LanguageDataset(text, tokenizer, split='val', train_split=train_split, block_size=block_size)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
@@ -118,10 +119,21 @@ def train_loop(
         ) -> float:
     """Train the model for a given number of epochs"""
     global_step = 0
-    for epoch in range(epochs):
-        progress_bar = tqdm(train_loader, desc=f'Epoch {epoch}')
 
-        for step, batch in enumerate(progress_bar):
+    val_loss = evaluate_model(model, val_loader)
+    print(f'Validation loss: {val_loss}, global_step: {global_step}')
+
+    print(f'Training for {max_train_steps} steps')
+    for epoch in range(epochs):
+
+        remaining_steps = max_train_steps - global_step
+        steps_this_epoch = min(len(train_loader), remaining_steps)
+        if steps_this_epoch <= 0:
+            break
+
+        progress_bar = tqdm(total=steps_this_epoch, desc=f'Epoch {epoch}', leave=False)
+
+        for batch in train_loader:
             optimizer.zero_grad(set_to_none=True)
 
             context, targets = batch
@@ -135,23 +147,27 @@ def train_loop(
             loss.backward()
             optimizer.step()
 
-            if global_step % 100 == 0 or step == len(progress_bar) - 1:
-                progress_bar.set_postfix(loss=loss.item(), global_step=global_step)
-
-            if global_step % eval_interval == 0:
-                val_loss = evaluate_model(model, val_loader)
-                print(f'validation loss: {val_loss}, global_step: {global_step}')
-                print(generate_example(model, tokenizer, max_tokens=block_size))
-            
             global_step += 1
+            progress_bar.update(1)
 
+            progress_bar.set_postfix(loss=loss.item(), global_step=global_step)
+
+            if global_step % eval_interval == 0 or global_step == max_train_steps:
+                val_loss = evaluate_model(model, val_loader)
+                print(f'Validation loss: {val_loss}, global_step: {global_step}')
+
+            if global_step % example_interval == 0 or global_step == max_train_steps:
+                print("================================================")
+                print(generate_example(model, tokenizer, max_tokens=block_size))
+                print("================================================")
+            
             if global_step >= max_train_steps:
                 break
 
-        print(generate_example(model, tokenizer, max_tokens=block_size))
-
+        progress_bar.close()
+    
     return loss.item()
 
+
 loss = train_loop(model, optimizer, train_loader, val_loader)
-print(f'final loss: {loss}')
-print(generate_example(model, tokenizer, max_tokens=block_size))
+print(f'Final loss: {loss}')
