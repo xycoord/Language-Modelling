@@ -2,15 +2,16 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from torch import Tensor
+from .config import BigramConfig
 
 class BigramLanguageModel(nn.Module):
     """
     A simple bigram language model that predicts the next token in a sequence.
     """
 
-    def __init__(self, vocab_size: int):
+    def __init__(self, config: BigramConfig):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding_table = nn.Embedding(config.vocab_size, config.vocab_size)
 
     def forward(self, context: Tensor) -> Tensor:
         logits = self.token_embedding_table(context)

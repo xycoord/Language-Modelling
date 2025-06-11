@@ -3,7 +3,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from models.bigram import BigramLanguageModel
+from models.bigram import BigramLanguageModel, BigramConfig
 from datasets.language_dataset import LanguageDataset
 from tokenizers import CharTokenizer, Tokenizer
 
@@ -31,7 +31,8 @@ val_dataset = LanguageDataset(text, tokenizer, split='val', train_split=0.9, blo
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=True)
 
-model = BigramLanguageModel(tokenizer.vocab_size).to(device)
+model_config = BigramConfig(vocab_size=tokenizer.vocab_size)
+model = BigramLanguageModel(model_config).to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 def generate_example(model: BigramLanguageModel, tokenizer: Tokenizer, max_new_tokens: int = 50) -> str:
@@ -70,7 +71,6 @@ def train_loop(
         optimizer: torch.optim.Optimizer, 
         train_loader: DataLoader, 
         val_loader: DataLoader,
-        device: str
         ) -> float:
     """Train the model for a given number of epochs"""
     global_step = 0
