@@ -14,7 +14,7 @@ class LanguageDataset(Dataset):
                  data_text: str, 
                  tokenizer: Tokenizer,
                  split: str = 'train', 
-                 train_split: float = 0.9, 
+                 train_split: float = 1.0, 
                  block_size: int = 8, 
                 ):
         self.block_size = block_size
@@ -29,6 +29,8 @@ class LanguageDataset(Dataset):
             raise ValueError("train_split cannot be 1 when split is 'val'.")
         if block_size < 1:
             raise ValueError(f"Invalid block_size: {block_size}. Must be greater than 0.")
+        if split == 'train' and train_split == 1:
+            print("Note: Using all data for training. Consider setting train_split < 1.0 for validation.")
         
         data = torch.tensor(self.tokenizer.encode(data_text), dtype=torch.long)
         if len(data) <= block_size:
