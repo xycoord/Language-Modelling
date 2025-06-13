@@ -10,6 +10,7 @@ class BasicBPETokenizer(Tokenizer):
         vocab: token -> bytes[]
         merges: token_pair -> new_token
         """
+        super().__init__()
         self.vocab_size = 256
         self.vocab = {token: bytes([token]) for token in range(self.vocab_size)}
         self.merges = {}

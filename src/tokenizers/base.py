@@ -9,8 +9,8 @@ class Tokenizer(ABC):
     
     @abstractmethod
     def encode(self, text: str) -> list[Token]:
-        pass
+        ...
 
     @abstractmethod
     def decode(self, tokens: list[Token]) -> str:
-        pass
+        ...

@@ -22,5 +22,8 @@ dev = [
     "matplotlib",
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "^\\s*\\.\\.\\.\\s*$"
+]

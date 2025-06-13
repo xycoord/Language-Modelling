@@ -39,7 +39,7 @@ class LanguageDataset(Dataset):
         train_end_idx = int(train_split * len(data))
         if split == 'train':
             self.data = data[:train_end_idx]
-        elif split == 'val':
+        elif split == 'val': # pragma: no branch
             self.data = data[train_end_idx:]
 
     def __len__(self) -> int:
