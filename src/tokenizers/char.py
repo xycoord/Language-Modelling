@@ -16,8 +16,14 @@ class CharTokenizer(Tokenizer):
 
     def encode(self, string: str) -> list[Token]:
         """Convert a string to a list of tokens"""
+        unknown_chars = set(string) - set(self.chars)
+        if unknown_chars:
+            raise ValueError(f"Characters not in vocabulary: {unknown_chars}")
         return [self.char_to_token[c] for c in string]
 
     def decode(self, tokens: list[Token]) -> str:
         """Convert a list of tokens to a string"""
+        invalid_tokens = [t for t in tokens if t not in self.token_to_char]
+        if invalid_tokens:
+            raise ValueError(f"Invalid tokens: {invalid_tokens}")
         return ''.join([self.token_to_char[t] for t in tokens])
