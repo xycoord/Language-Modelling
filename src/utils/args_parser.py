@@ -19,10 +19,6 @@ class ArgsParser(argparse.ArgumentParser):
     def parse_config_args(self, args: Optional[List[str]] = None) -> Tuple[str, Dict[str, Any]]:
         """Parse arguments and return config path and overrides"""
         parsed_args = self.parse_args(args)
-        
-        if not parsed_args.config and self._require_config:
-            self.error("Config file is required")
-        
         overrides = self._parse_overrides(parsed_args.override)
         
         return parsed_args.config, overrides
@@ -35,7 +31,7 @@ class ArgsParser(argparse.ArgumentParser):
         
         overrides = {}
         for override in override_args:
-            if '=' not in override:
+            if '=' not in override or override.startswith('='):
                 self.error(f"Invalid override format: {override}. Expected key=value")
             
             key, value = override.split('=', 1)
