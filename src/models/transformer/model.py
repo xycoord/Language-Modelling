@@ -42,6 +42,11 @@ class TransformerLanguageModel(nn.Module):
     def forward(self, context: Tensor) -> Tensor:
         _, T = context.shape
 
+        if T > self.config.block_size:
+            raise ValueError(f"Sequence length {T} exceeds block size {self.config.block_size}")
+        if not T == 0 and context.max() >= self.config.vocab_size:
+            raise ValueError("Token values must be between 0 and vocab_size")
+
         # Embed tokens and positions
         token_embeds = self.token_embedding_table(context) # (B, T, embed_dim)
         position_embeds = self.position_embedding_table(torch.arange(T, device=context.device)) # (T, embed_dim)
@@ -59,7 +64,9 @@ class TransformerLanguageModel(nn.Module):
     @torch.no_grad()
     def generate(self, context: Tensor, max_new_tokens: int) -> Tensor:
         """Generate tokens autoregressively using multinomial sampling."""
-        assert context.shape[1] + max_new_tokens <= self.config.block_size, "Cannot generate more tokens than the block size"
+        if context.shape[1] + max_new_tokens > self.config.block_size:
+            raise ValueError("Cannot generate more tokens than the block size")
+        
         for _ in range(max_new_tokens):
             logits = self(context)
             logits = logits[:, -1, :]
@@ -69,5 +76,5 @@ class TransformerLanguageModel(nn.Module):
         return context
 
     @property
-    def device(self) -> str:
+    def device(self) -> torch.device:
         return next(self.parameters()).device

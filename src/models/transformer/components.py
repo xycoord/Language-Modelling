@@ -8,7 +8,7 @@ from .config import TransformerConfig
 
 class ResidualProjection(nn.Linear):
     """Linear layer that projects back to the residual stream"""
-    pass
+    ...
 
 class Attention(nn.Module):
     """
@@ -18,6 +18,7 @@ class Attention(nn.Module):
         super().__init__()
         self.dropout = dropout
         self.head_size = head_size
+        self.block_size = block_size
 
         self.flash = flash and hasattr(F, 'scaled_dot_product_attention')
         if flash and not self.flash:
@@ -32,6 +33,11 @@ class Attention(nn.Module):
             self.attention_dropout = nn.Dropout(dropout)
 
     def forward(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
+        seq_len = q.shape[-2]
+
+        if seq_len > self.block_size:
+            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.block_size}")
+        
         if self.flash:
             return F.scaled_dot_product_attention(q, k, v, 
                 attn_mask = None, 
@@ -39,7 +45,6 @@ class Attention(nn.Module):
                 is_causal = True)
         
         # Not flash
-        seq_len = q.shape[-2]
         attention_scores = q @ k.transpose(-2, -1) * self.head_size**-0.5
         masked_scores = attention_scores.masked_fill(self.causal_mask[:seq_len, :seq_len] == 0, float('-inf'))
         attention_weights = F.softmax(masked_scores, dim=-1)
@@ -54,12 +59,17 @@ class AttentionHead(nn.Module):
     def __init__(self, embed_dim: int, block_size: int, head_size: int, dropout: float = 0.0, flash: bool = True):
         super().__init__()
         self.head_size = head_size
+        self.block_size = block_size
         self.query_proj = nn.Linear(embed_dim, head_size, bias=False)
         self.key_proj = nn.Linear(embed_dim, head_size, bias=False)
         self.value_proj = nn.Linear(embed_dim, head_size, bias=False)
         self.attention = Attention(block_size, head_size, dropout, flash)
 
     def forward(self, input: Tensor) -> Tensor:
+        seq_len = input.shape[-2]
+        if seq_len > self.block_size:
+            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.block_size}")
+        
         q = self.query_proj(input)
         k = self.key_proj(input)
         v = self.value_proj(input)
@@ -74,11 +84,16 @@ class MultiHeadAttention(nn.Module):
     """
     def __init__(self, config: TransformerConfig):
         super().__init__()
+        self.config = config
         self.heads = nn.ModuleList([AttentionHead(config.embed_dim, config.block_size, config.head_size, config.dropout, config.flash) for _ in range(config.num_heads)])
         self.output_proj = ResidualProjection(config.num_heads * config.head_size, config.embed_dim)
         self.residual_dropout = nn.Dropout(config.dropout)
 
     def forward(self, input: Tensor) -> Tensor:
+        seq_len = input.shape[-2]
+        if seq_len > self.config.block_size:
+            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.config.block_size}")
+        
         out = torch.cat([head(input) for head in self.heads], dim=-1)
         out = self.output_proj(out)
         out = self.residual_dropout(out)
@@ -105,6 +120,8 @@ class ParallelMultiHeadAttention(nn.Module):
 
     def forward(self, input: Tensor) -> Tensor:
         B, T, _ = input.shape
+        if T > self.config.block_size:
+            raise ValueError(f"Sequence length {T} exceeds block size {self.config.block_size}")
 
         # Compute q, k, and v using a single linear projection
         # q, k, and v are concatenated along the last dimension
@@ -148,6 +165,7 @@ class FeedForward(nn.Module):
 
     def forward(self, input: Tensor) -> Tensor:
         return self.net(input)
+    
     
 class TransformerBlock(nn.Module):
     """
