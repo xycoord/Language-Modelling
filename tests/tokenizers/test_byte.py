@@ -1,4 +1,4 @@
-from tokenizers import ByteTokenizer
+from src.tokenizers.byte import ByteTokenizer
 
 def test_vocab_size():
     """Test that vocab_size is always 256"""

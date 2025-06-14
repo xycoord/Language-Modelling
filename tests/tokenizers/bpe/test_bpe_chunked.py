@@ -1,6 +1,7 @@
 import pytest
-from tokenizers import ChunkedBPETokenizer, OptimizedBPETokenizer
-from tokenizers.bpe.utils import GPT2_SPLIT_PATTERN, GPT4_SPLIT_PATTERN
+from src.tokenizers.bpe.chunked import ChunkedBPETokenizer
+from src.tokenizers.bpe.optimized import OptimizedBPETokenizer
+from src.tokenizers.bpe.utils import GPT2_SPLIT_PATTERN, GPT4_SPLIT_PATTERN
 import regex as re
 
 @pytest.fixture(params=[

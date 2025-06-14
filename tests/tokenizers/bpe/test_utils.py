@@ -1,4 +1,4 @@
-from tokenizers.bpe.utils import count_pairs, merge_pair
+from src.tokenizers.bpe.utils import count_pairs, merge_pair
 
 
 # --- count_pairs tests ---

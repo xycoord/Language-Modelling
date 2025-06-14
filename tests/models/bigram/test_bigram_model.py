@@ -1,7 +1,8 @@
 import pytest
 import torch
 
-from models import BigramLanguageModel, BigramConfig
+from src.models.bigram.model import BigramLanguageModel
+from src.models.bigram.config import BigramConfig
 
 
 @pytest.fixture

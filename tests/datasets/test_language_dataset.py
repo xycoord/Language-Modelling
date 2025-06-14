@@ -3,8 +3,8 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from datasets.language_dataset import LanguageDataset
-from tokenizers import ByteTokenizer
+from src.datasets.language_dataset import LanguageDataset
+from src.tokenizers.byte import ByteTokenizer
 
 
 # --- Fixtures ---

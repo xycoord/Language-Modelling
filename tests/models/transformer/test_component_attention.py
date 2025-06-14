@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from models.transformer.components import Attention
+from src.models.transformer.components import Attention
 
 from tests.models.transformer.mock_flash_availability import mock_flash_availability
 

@@ -1,5 +1,7 @@
 import pytest
-from tokenizers import BasicBPETokenizer, ChunkedBPETokenizer, OptimizedBPETokenizer
+from src.tokenizers.bpe.basic import BasicBPETokenizer
+from src.tokenizers.bpe.chunked import ChunkedBPETokenizer
+from src.tokenizers.bpe.optimized import OptimizedBPETokenizer
 import unicodedata
 
 
