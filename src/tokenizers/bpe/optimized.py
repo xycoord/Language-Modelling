@@ -1,11 +1,11 @@
-from ..base import Tokenizer, Token
-from .utils import count_pairs, merge_pair, GPT4_SPLIT_PATTERN
-
+from ..base import Token
+from .chunked import ChunkedBPETokenizer
+from .utils import count_pairs, merge_pair
 import regex as re
 from collections import Counter
 
 
-class OptimizedBPETokenizer(Tokenizer):
+class OptimizedBPETokenizer(ChunkedBPETokenizer):
     """Byte Pair Encoding tokenizer with regex-based text chunking.
     
     Optimisations:
@@ -13,18 +13,6 @@ class OptimizedBPETokenizer(Tokenizer):
     - Chunk caching during encoding to avoid redundant BPE operations
     - Chunk deduplication during training for efficiency
     """
-
-    def __init__(self, split_pattern: str = GPT4_SPLIT_PATTERN):
-        """Initialize tokenizer with UTF-8 byte vocabulary (0-255).
-        vocab: token -> bytes[]
-        merges: token_pair -> new_token
-        """
-        super().__init__()
-        self.split_pattern = split_pattern
-        self.split_regex = re.compile(split_pattern)
-        self.vocab_size = 256
-        self.vocab = {token: bytes([token]) for token in range(self.vocab_size)}
-        self.merges = {}
 
     def encode(self, text: str) -> list[Token]:
         """Convert a string to a list of tokens with chunk caching"""
@@ -42,28 +30,6 @@ class OptimizedBPETokenizer(Tokenizer):
                 chunk_cache[text_chunk] = token_chunk
 
         return token_seq
-
-    def _encode_chunk(self, chunk: list[Token]) -> list[Token]:
-        """Apply BPE merges to a token sequence"""
-        token_seq = list(chunk)
-        while len(token_seq) >= 2:
-            pair_counts = count_pairs(token_seq)
-
-            pair = min(pair_counts, key=lambda p: self.merges.get(p, float("inf")))
-            if pair not in self.merges:
-                break
-
-            new_token = self.merges[pair]
-            token_seq = merge_pair(token_seq, pair, new_token)
-
-        return token_seq
-
-    def decode(self, tokens: list[Token]) -> str:
-        """Convert a list of tokens to a string"""
-        byte_sequences = [self.vocab[token] for token in tokens]
-        text = self._postprocess_text(byte_sequences)
-        return text
-
 
     def train(self, text: str, target_vocab_size: int):
         """Learn BPE merges from text to expand vocabulary.
