@@ -1,6 +1,8 @@
 from ..base import Tokenizer, Token
 from .utils import count_pairs, merge_pair, GPT4_SPLIT_PATTERN
-
+from ..save_utils import atomic_save_json, safe_load_json
+import base64
+from pathlib import Path
 import regex as re
 
 
@@ -14,7 +16,11 @@ class ChunkedBPETokenizer(Tokenizer):
         """
         super().__init__()
         self.split_pattern = split_pattern
-        self.split_regex = re.compile(split_pattern)
+        try:
+            self.split_regex = re.compile(split_pattern)
+        except re.error as e:
+            raise ValueError(f"Invalid regex pattern: {e}")
+        
         self.vocab_size = 256
         self.vocab = {token: bytes([token]) for token in range(self.vocab_size)}
         self.merges = {}
@@ -112,3 +118,53 @@ class ChunkedBPETokenizer(Tokenizer):
         text_bytes = b"".join(byte_sequences)
         text = text_bytes.decode('utf-8', errors='replace')
         return text
+
+    def save(self, filepath: str | Path) -> None:
+        """Save the trained tokenizer to a file."""
+        
+        data = {
+            "format_version": "1.0",
+            "tokenizer_type": "ChunkedBPE",
+            "split_pattern": self.split_pattern,
+            "vocab_size": self.vocab_size,
+            
+            # Convert vocab: int -> bytes to string -> base64
+            "vocab": {
+                str(token): base64.b64encode(byte_seq).decode('ascii')
+                for token, byte_seq in self.vocab.items()
+            },
+            
+            # Convert merges: (int, int) -> int to "int,int" -> int
+            "merges": {
+                f"{pair[0]},{pair[1]}": new_token
+                for pair, new_token in self.merges.items()
+            }
+        }
+        
+        atomic_save_json(filepath, data)
+    
+    @classmethod
+    def load(cls, filepath: str | Path) -> 'ChunkedBPETokenizer':
+        """Load a trained tokenizer from a file."""
+        data = safe_load_json(filepath)
+        
+        if data.get("tokenizer_type") != "ChunkedBPE":
+            raise ValueError(f"Expected ChunkedBPE tokenizer, got {data.get('tokenizer_type')}")
+        
+        tokenizer = cls(split_pattern=data["split_pattern"])
+        tokenizer.vocab_size = data["vocab_size"]
+        
+        # Reconstruct vocab: string -> base64 to int -> bytes
+        tokenizer.vocab = {
+            int(token_str): base64.b64decode(b64_bytes)
+            for token_str, b64_bytes in data["vocab"].items()
+        }
+        
+        # Reconstruct merges: "int,int" -> int to (int, int) -> int
+        tokenizer.merges = {
+            (int(parts[0]), int(parts[1])): new_token
+            for pair_str, new_token in data["merges"].items()
+            for parts in [pair_str.split(',')]
+        }
+        
+        return tokenizer

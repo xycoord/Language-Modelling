@@ -1,6 +1,8 @@
 from ..base import Tokenizer, Token
 from .utils import count_pairs, merge_pair
-
+from ..save_utils import atomic_save_json, safe_load_json
+import base64
+from pathlib import Path
 
 class BasicBPETokenizer(Tokenizer):
     """Byte Pair Encoding tokenizer that operates on raw UTF-8 bytes (no chunking)."""
@@ -97,3 +99,52 @@ class BasicBPETokenizer(Tokenizer):
         text_bytes = b"".join(byte_sequences)
         text = text_bytes.decode('utf-8', errors='replace')
         return text
+
+    def save(self, filepath: str | Path) -> None:
+        """Save the trained tokenizer to a file."""
+        
+        data = {
+            "format_version": "1.0",
+            "tokenizer_type": "BasicBPE",
+            "vocab_size": self.vocab_size,
+            
+            # Convert vocab: int -> bytes to string -> base64
+            "vocab": {
+                str(token): base64.b64encode(byte_seq).decode('ascii')
+                for token, byte_seq in self.vocab.items()
+            },
+            
+            # Convert merges: (int, int) -> int to "int,int" -> int
+            "merges": {
+                f"{pair[0]},{pair[1]}": new_token
+                for pair, new_token in self.merges.items()
+            }
+        }
+        
+        atomic_save_json(filepath, data)
+    
+    @classmethod
+    def load(cls, filepath: str | Path) -> 'BasicBPETokenizer':
+        """Load a trained tokenizer from a file."""
+        data = safe_load_json(filepath)
+        
+        if data.get("tokenizer_type") != "BasicBPE":
+            raise ValueError(f"Expected BasicBPE tokenizer, got {data.get('tokenizer_type')}")
+        
+        tokenizer = cls()
+        tokenizer.vocab_size = data["vocab_size"]
+        
+        # Reconstruct vocab: string -> base64 to int -> bytes
+        tokenizer.vocab = {
+            int(token_str): base64.b64decode(b64_bytes)
+            for token_str, b64_bytes in data["vocab"].items()
+        }
+        
+        # Reconstruct merges: "int,int" -> int to (int, int) -> int
+        tokenizer.merges = {
+            (int(parts[0]), int(parts[1])): new_token
+            for pair_str, new_token in data["merges"].items()
+            for parts in [pair_str.split(',')]
+        }
+        
+        return tokenizer
