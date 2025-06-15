@@ -196,3 +196,21 @@ def test_config_rejects_invalid_vocab_size():
 
     config = BigramConfig(vocab_size=10)
     assert config.vocab_size == 10
+
+# ================================ Test device ================================
+
+@pytest.fixture(
+    params=[
+        pytest.param("cpu", id="cpu_device"),
+        pytest.param("cuda", id="cuda_device", 
+                    marks=pytest.mark.skipif(not torch.cuda.is_available(),
+                                           reason="CUDA not available"))
+    ]
+)
+def device(request):
+    """Fixture providing available devices for testing"""
+    return torch.device(request.param)
+
+def test_device(standard_model, device):
+    standard_model = standard_model.to(device)
+    assert standard_model.device == torch.device(device)
