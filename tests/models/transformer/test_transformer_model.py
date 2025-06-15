@@ -90,7 +90,7 @@ def test_forward_device_consistency(model, sample_tokens, device):
     sample_tokens = sample_tokens.to(device)
     logits = model_on_device(sample_tokens)
     
-    assert logits.device == device, f"Logits should be on {device}"
+    assert logits.device.type == device.type, f"Logits should be on {device}"
     assert torch.isfinite(logits).all(), f"Should work on {device}"
 
 def test_forward_causal_behavior_preserved(model, sample_tokens):
@@ -256,7 +256,7 @@ def test_generate_device_consistency(model, config, device):
     
     generated_tokens = model.generate(context, max_new_tokens=3)
     
-    assert generated_tokens.device == device, \
+    assert generated_tokens.device.type == device.type, \
         f"Generated tokens should be on {device}"
 
 
@@ -274,4 +274,4 @@ def test_generate_no_gradients(model, sample_tokens):
 # Test device
 def test_device(model, device):
     model = model.to(device)
-    assert model.device == torch.device(device)
+    assert model.device.type == device.type

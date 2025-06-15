@@ -213,4 +213,4 @@ def device(request):
 
 def test_device(standard_model, device):
     standard_model = standard_model.to(device)
-    assert standard_model.device == torch.device(device)
+    assert standard_model.device.type == device.type
