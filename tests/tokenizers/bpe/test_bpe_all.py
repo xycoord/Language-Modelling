@@ -341,6 +341,28 @@ def test_unicode_normalization_consistency(fresh_tokenizer):
     assert nfd_decoded == nfd_text, "NFD text should round-trip correctly"
 
 
+def test_min_merge_count_ordering(tokenizer_class):
+    """Test that higher min_merge_count produces smaller or equal vocabulary."""
+    training_text = "repeat repeat repeat text text text " * 75
+    target_vocab = 350
+    
+    results = {}
+    min_merge_counts = [1, 2, 5, 10]
+    
+    for count in min_merge_counts:
+        # Create fresh tokenizer instance for each test
+        test_tokenizer = tokenizer_class()
+        test_tokenizer.train(training_text, target_vocab, min_merge_count=count)
+        results[count] = test_tokenizer.vocab_size
+    
+    # Verify ordering: higher min_merge_count ≤ lower min_merge_count
+    for i in range(len(min_merge_counts) - 1):
+        current_count = min_merge_counts[i]
+        next_count = min_merge_counts[i + 1]
+        assert results[next_count] <= results[current_count], \
+            f"min_merge_count={next_count} resulted in larger vocab than min_merge_count={current_count}"
+
+
 # ================================ Test save/load ================================
 
 def test_save_creates_file(fresh_tokenizer, temp_tokenizer_file):

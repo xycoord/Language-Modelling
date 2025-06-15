@@ -41,7 +41,7 @@ class BasicBPETokenizer(Tokenizer):
         return text
 
 
-    def train(self, text: str, target_vocab_size: int):
+    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Modifies the tokenizer in-place.
         
@@ -68,6 +68,9 @@ class BasicBPETokenizer(Tokenizer):
                 break
 
             most_common_pair = max(pair_counts, key=pair_counts.get)
+            if pair_counts[most_common_pair] < min_merge_count:
+                # if the pair is not common enough, we're done
+                break
 
             # mint a new token
             new_token = next_token
