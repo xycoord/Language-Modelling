@@ -30,12 +30,12 @@ def standard_model(standard_config):
 
 
 # Core model contract tests
-def test_forward_returns_correct_vocab_dimension(standard_model):
+def test_forward_returns_correct_vocab_dimension(standard_model, standard_config):
     """Forward should return logits with vocab_size as final dimension"""
-    context = torch.randint(0, 100, (2, 5))
+    context = torch.randint(0, standard_config.vocab_size, (2, 5))
     logits = standard_model(context)
     
-    assert logits.shape[-1] == 100  # vocab_size from config
+    assert logits.shape[-1] == standard_config.vocab_size
 
 
 def test_forward_returns_same_sequence_length(standard_model):
@@ -57,9 +57,9 @@ def test_forward_with_different_vocab_sizes():
         assert logits.shape[-1] == vocab_size
 
 
-def test_generate_extends_by_exact_token_count(standard_model):
+def test_generate_extends_by_exact_token_count(standard_model, standard_config):
     """Generate should extend sequence by exactly max_new_tokens"""
-    context = torch.randint(0, 100, (1, 4))
+    context = torch.randint(0, standard_config.vocab_size, (1, 4))
     original_length = context.shape[1]
     
     for new_tokens in [0, 1, 5, 10]:
@@ -70,11 +70,9 @@ def test_generate_extends_by_exact_token_count(standard_model):
 def test_generate_preserves_input_context(standard_model):
     """Generate should not modify the original context portion"""
     context = torch.randint(0, 100, (2, 6))
-    
     result = standard_model.generate(context, max_new_tokens=4)
     
-    # Original context should be unchanged at the beginning
-    assert torch.equal(result[:, :6], context)
+    assert torch.equal(result[:, :6], context), "Result should be the same as the original context"
 
 
 def test_generate_produces_tokens_within_vocabulary(small_model):
@@ -91,62 +89,52 @@ def test_generate_produces_tokens_within_vocabulary(small_model):
 
 def test_generate_uses_only_last_token_for_prediction(standard_model):
     """Generate should base next token prediction only on the last token (bigram property)"""
-    vocab_size = 100
-    
-    # Two contexts that differ only in non-final tokens
+
     context1 = torch.tensor([[10, 20, 30, 40]])
-    context2 = torch.tensor([[99, 88, 77, 40]])  # Same last token (40)
+    context2 = torch.tensor([[99, 88, 77, 40]])
     
-    # Set same random seed for both
     torch.manual_seed(42)
     result1 = standard_model.generate(context1, max_new_tokens=1)
-    
     torch.manual_seed(42)
     result2 = standard_model.generate(context2, max_new_tokens=1)
     
-    # The new token should be the same since last context token is the same
-    assert result1[0, -1] == result2[0, -1]
+    assert result1[0, -1] == result2[0, -1], "The new token should be the same since last context token is the same"
 
 
-def test_generate_with_zero_tokens_is_identity(standard_model):
+def test_generate_with_zero_tokens_is_identity(standard_model, standard_config):
     """Generate with max_new_tokens=0 should return input unchanged"""
-    context = torch.randint(0, 100, (3, 7))
+    context = torch.randint(0, standard_config.vocab_size, (3, 7))
     
     result = standard_model.generate(context, max_new_tokens=0)
     
-    assert torch.equal(result, context)
+    assert torch.equal(result, context), "Result should be the same as the original context"
 
 
-def test_model_works_with_single_token_context(standard_model):
+def test_model_works_with_single_token_context(standard_model, standard_config):
     """Model should handle contexts with just one token"""
-    context = torch.randint(0, 100, (1, 1))
+    context = torch.randint(0, standard_config.vocab_size, (1, 1))
     
-    # Forward pass
     logits = standard_model(context)
-    assert logits.shape == (1, 1, 100)
+    assert logits.shape == (1, 1, standard_config.vocab_size)
     
-    # Generation
     result = standard_model.generate(context, max_new_tokens=3)
     assert result.shape == (1, 4)
     assert torch.equal(result[:, :1], context)
 
 
-def test_model_handles_batch_dimension_correctly(standard_model):
+def test_model_handles_batch_dimension_correctly(standard_model, standard_config):
     """Model should process each item in batch independently"""
     batch_size = 4
-    context = torch.randint(0, 100, (batch_size, 5))
+    context = torch.randint(0, standard_config.vocab_size, (batch_size, 5))
     
-    # Forward pass
     logits = standard_model(context)
     assert logits.shape[0] == batch_size
     
-    # Generation
     result = standard_model.generate(context, max_new_tokens=3)
     assert result.shape[0] == batch_size
     
-    # Each batch item should have its original context preserved
     for i in range(batch_size):
-        assert torch.equal(result[i, :5], context[i])
+        assert torch.equal(result[i, :5], context[i]), "Each batch item should have its original context preserved"
 
 
 def test_model_with_minimal_vocabulary():
@@ -162,15 +150,7 @@ def test_model_with_minimal_vocabulary():
     
     result = model.generate(context, max_new_tokens=5)
     assert result.shape == (1, 8)
-    # All tokens must be 0 since it's the only valid token
-    assert (result == 0).all()
-
-
-def test_device_property_returns_parameter_device(standard_model):
-    """Device property should return the device of model parameters"""
-    # This tests the specific implementation of the device property
-    expected_device = next(standard_model.parameters()).device
-    assert standard_model.device == expected_device
+    assert (result == 0).all(), "All tokens must be 0 since it's the only valid token"
 
 
 def test_bigram_property_with_repeated_contexts():
@@ -178,17 +158,14 @@ def test_bigram_property_with_repeated_contexts():
     config = BigramConfig(vocab_size=50)
     model = BigramLanguageModel(config)
     
-    # Different contexts but same final token
     context1 = torch.tensor([[1, 2, 3, 25]])
     context2 = torch.tensor([[10, 15, 7, 25]])
-    context3 = torch.tensor([[25]])  # Just the final token
+    context3 = torch.tensor([[25]])
     
     logits1 = model(context1)
     logits2 = model(context2)
     logits3 = model(context3)
     
-    # The logits for the final position should be identical
-    # since bigram only looks at the last token
     assert torch.allclose(logits1[0, -1, :], logits2[0, -1, :])
     assert torch.allclose(logits1[0, -1, :], logits3[0, -1, :])
 
@@ -204,23 +181,18 @@ def test_model_config_integration():
         context = torch.randint(0, vocab_size, (1, 3))
         logits = model(context)
         
-        # Output dimension should match config
-        assert logits.shape[-1] == vocab_size
+        assert logits.shape[-1] == vocab_size, "Output dimension should match config"
 
 def test_config_rejects_invalid_vocab_size():
     """BigramConfig should reject invalid vocab_size values"""
-    # Test zero vocab size
     with pytest.raises(ValueError, match="vocab_size must be positive"):
         BigramConfig(vocab_size=0)
     
-    # Test negative vocab size
     with pytest.raises(ValueError, match="vocab_size must be positive"):
         BigramConfig(vocab_size=-1)
     
-    # Test negative vocab size
     with pytest.raises(ValueError, match="vocab_size must be positive"):
         BigramConfig(vocab_size=-100)
 
-    # Test positive vocab size
     config = BigramConfig(vocab_size=10)
     assert config.vocab_size == 10

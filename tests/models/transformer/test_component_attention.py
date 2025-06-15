@@ -13,7 +13,12 @@ from tests.models.transformer.mock_flash_availability import mock_flash_availabi
 def test_init_state_variables(use_flash, has_flash):
     """Test that the state variables are set correctly"""
     with mock_flash_availability(has_flash):
-        attention = Attention(block_size=10, head_size=10, flash=use_flash)
+        if use_flash and not has_flash:
+            with pytest.warns(UserWarning, match="Flash Attention is not available, using fallback implementation"):
+                attention = Attention(block_size=10, head_size=10, flash=use_flash)
+        else:
+            attention = Attention(block_size=10, head_size=10, flash=use_flash)
+        
         assert attention.dropout == 0.0
         assert attention.head_size == 10
         assert attention.flash == (use_flash and has_flash)
