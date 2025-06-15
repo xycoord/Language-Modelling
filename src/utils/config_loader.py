@@ -50,6 +50,7 @@ class Config:
     max_train_steps: Optional[int] = None
     compile_model: bool = False
     mixed_precision: bool = False
+    tokenizer_path: Optional[str] = None
 
     @classmethod
     def from_file(cls, config_path: str, overrides: Optional[Dict[str, Any]] = None) -> 'Config':

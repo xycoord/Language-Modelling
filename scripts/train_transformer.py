@@ -8,7 +8,7 @@ from pathlib import Path
 
 from models.transformer import TransformerLanguageModel
 from datasets.language_dataset import LanguageDataset
-from tokenizers import CharTokenizer, Tokenizer
+from tokenizers import Tokenizer, OptimizedBPETokenizer
 
 from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
 
@@ -130,7 +130,7 @@ def main():
     with open(data_path, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    tokenizer = CharTokenizer(text)
+    tokenizer = OptimizedBPETokenizer.load(config.tokenizer_path)
         
     train_dataset = LanguageDataset(text, tokenizer, split='train', 
                                     train_split=config.train_split, 
@@ -142,6 +142,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True)
 
+    config.model_config_typed.vocab_size = tokenizer.vocab_size
     model = TransformerLanguageModel(config.model_config_typed).to(config.device)
 
     if config.compile_model:
