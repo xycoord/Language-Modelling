@@ -143,6 +143,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True)
 
     config.model_config_typed.vocab_size = tokenizer.vocab_size
+    print(f'Vocab size: {config.model_config_typed.vocab_size}')
     model = TransformerLanguageModel(config.model_config_typed).to(config.device)
 
     if config.compile_model:

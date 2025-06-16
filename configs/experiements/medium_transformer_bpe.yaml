@@ -1,0 +1,19 @@
+experiment_name: "medium_transformer"
+
+seed: 1337
+learning_rate: 3.0e-4
+batch_size: 256
+epochs: 2
+block_size: 256
+vocab_size: 65
+max_train_steps: 10000
+eval_interval: 250
+example_interval: 250
+train_split: 0.95
+compile_model: true
+mixed_precision: true
+tokenizer_path: "data/tokenizers/shakespeare_tokenizer_4096.json"
+
+inherits:
+  - configs/base/model_architectures/medium_transformer.yaml
+  - configs/base/system/laptop.yaml
