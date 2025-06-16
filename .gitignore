@@ -196,3 +196,5 @@ cython_debug/
 
 # Weights & Biases
 wandb/
+
+data/gutenberg_corpus
