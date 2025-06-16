@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from pathlib import Path
 
+import wandb
+
 from models.transformer import TransformerLanguageModel
 from datasets.language_dataset import LanguageDataset
 from tokenizers import Tokenizer, OptimizedBPETokenizer
@@ -64,6 +66,7 @@ def train_loop(
 
     val_loss = evaluate_model(model, val_loader, config)
     print(f'Validation loss: {val_loss}, global_step: {global_step}')
+    wandb.log({"val_loss": val_loss}, step=global_step)
 
     # autocast context manager for mixed precision training
     mixed_precision_ctx = get_autocast_ctx(config)
@@ -96,10 +99,12 @@ def train_loop(
             progress_bar.update(1)
 
             progress_bar.set_postfix(loss=loss.item(), global_step=global_step)
+            wandb.log({"loss": loss.item()}, step=global_step)
 
             if global_step % config.eval_interval == 0 or global_step == config.max_train_steps:
                 val_loss = evaluate_model(model, val_loader, config)
                 print(f'Validation loss: {val_loss}, global_step: {global_step}')
+                wandb.log({"val_loss": val_loss}, step=global_step)
 
             if global_step % config.example_interval == 0 or global_step == config.max_train_steps:
                 print("================================================")
@@ -153,8 +158,12 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
 
+    wandb.init(project="language-modelling", config=config)
+
     final_loss = train_loop(model, optimizer, train_loader, val_loader, tokenizer, config)
     print(f'Final loss: {final_loss}')
+
+    wandb.finish()
 
 
 if __name__ == "__main__":
