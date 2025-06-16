@@ -23,6 +23,9 @@ class TransformerLanguageModel(nn.Module):
         self.final_layer_norm = nn.LayerNorm(config.embed_dim)
         self.to_logits = nn.Linear(config.embed_dim, config.vocab_size)
 
+        # Weight tying
+        self.token_embedding_table.weight = self.to_logits.weight
+
         # Explicitly initialize the weights as per GPT-2
         self.base_std = 0.02
         self.scaled_std = self.base_std / math.sqrt(2 * config.n_layers)

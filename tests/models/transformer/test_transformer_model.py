@@ -39,6 +39,15 @@ def test_init(config):
 def model(config):
     return TransformerLanguageModel(config)
 
+def test_weight_tying_identity(model):
+    """Test that embedding and output weights are the same tensor object."""
+    embedding_weights = model.token_embedding_table.weight
+    output_weights = model.to_logits.weight
+    
+    assert embedding_weights is output_weights, (
+        "Embedding and output layer weights should be the same tensor object"
+    )
+
 
 # Test forward
 
