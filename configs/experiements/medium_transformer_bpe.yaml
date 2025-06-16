@@ -2,9 +2,9 @@ experiment_name: "medium_transformer"
 
 seed: 1337
 learning_rate: 3.0e-4
-batch_size: 256
-epochs: 2
-block_size: 256
+batch_size: 64
+epochs: 200
+block_size: 128
 vocab_size: 65
 max_train_steps: 10000
 eval_interval: 250

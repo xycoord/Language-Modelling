@@ -11,6 +11,7 @@ import wandb
 from models.transformer import TransformerLanguageModel
 from datasets.language_dataset import LanguageDataset
 from tokenizers import Tokenizer, OptimizedBPETokenizer
+from datasets.offset_sampler import OffsetSampler
 
 from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
 
@@ -143,9 +144,15 @@ def main():
     val_dataset = LanguageDataset(text, tokenizer, split='val', 
                                   train_split=config.train_split, 
                                   block_size=config.block_size)
+    
+    print(f'Train dataset length: {len(train_dataset)}')
+    print(f'Val dataset length: {len(val_dataset)}')
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False, drop_last=True)
+    train_sampler = OffsetSampler(train_dataset, shuffle=True)
+    val_sampler = OffsetSampler(val_dataset, shuffle=False)
+
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=train_sampler, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, sampler=val_sampler, drop_last=True)
 
     config.model_config_typed.vocab_size = tokenizer.vocab_size
     print(f'Vocab size: {config.model_config_typed.vocab_size}')
