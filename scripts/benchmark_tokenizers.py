@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import time
 
-from tokenizers import BasicBPETokenizer, ChunkedBPETokenizer, OptimizedBPETokenizer, Tokenizer
+from tokenizers import BasicBPETokenizer, ChunkedBPETokenizer, DeduplicatedBPETokenizer, Tokenizer
 
 # load data
 with open('data/shakespeare.txt', 'r', encoding='utf-8') as f:
@@ -38,7 +38,7 @@ vocab_sizes = [512, 768, 1024]
 tokenizer_types = [
     (BasicBPETokenizer, "Basic"),
     (ChunkedBPETokenizer, "Chunked"), 
-    (OptimizedBPETokenizer, "Optimized")
+    (DeduplicatedBPETokenizer, "Optimized")
 ]
 
 # Store results

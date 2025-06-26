@@ -10,7 +10,7 @@ import wandb
 
 from models.transformer import TransformerLanguageModel
 from datasets.language_dataset import LanguageDataset
-from tokenizers import Tokenizer, OptimizedBPETokenizer
+from tokenizers import Tokenizer, DeduplicatedBPETokenizer
 from datasets.offset_sampler import OffsetSampler
 
 from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
@@ -136,7 +136,7 @@ def main():
     with open(data_path, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    tokenizer = OptimizedBPETokenizer.load(config.tokenizer_path)
+    tokenizer = DeduplicatedBPETokenizer.load(config.tokenizer_path)
         
     train_dataset = LanguageDataset(text, tokenizer, split='train', 
                                     train_split=config.train_split, 

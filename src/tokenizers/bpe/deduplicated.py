@@ -1,17 +1,17 @@
 from ..base import Token
+from .types import WeightedChunk
 from .chunked import ChunkedBPETokenizer
 from .utils import count_pairs, merge_pair
 import regex as re
 from collections import Counter
 
-
-class OptimizedBPETokenizer(ChunkedBPETokenizer):
+class DeduplicatedBPETokenizer(ChunkedBPETokenizer):
     """Byte Pair Encoding tokenizer with regex-based text chunking.
     
     Optimisations:
     - Regex chunking prevents merges across chunk boundaries
     - Chunk caching during encoding to avoid redundant BPE operations
-    - Chunk deduplication during training for efficiency
+    - Identical chunks are deduplicated by counting occurrences rather than processing separately
     """
 
     def encode(self, text: str) -> list[Token]:
@@ -39,9 +39,12 @@ class OptimizedBPETokenizer(ChunkedBPETokenizer):
         
         Args:
             text: Training text as a string
-            target_vocab_size: Desired vocabulary size (must be >= 256) 
+            target_vocab_size: Desired vocabulary size (must be >= current vocab size) 
+            min_merge_count: Minimum number of occurrences for a pair to be merged
         """
-        assert target_vocab_size >= self.vocab_size
+        if target_vocab_size < self.vocab_size:
+            raise ValueError("Target vocabulary size must be >= the current vocabulary size")
+        
         next_token = self.vocab_size
 
         print("Preprocessing text...")
@@ -55,13 +58,13 @@ class OptimizedBPETokenizer(ChunkedBPETokenizer):
 
             pair_counts = {}
             for token_chunk, num_copies in chunks:
-                pair_counts.update(count_pairs(token_chunk, num_copies, pair_counts))
-            
+                count_pairs(token_chunk, num_copies, pair_counts)
+
             if not pair_counts: 
                 # no more pairs to merge, we're done
                 break
 
-            most_common_pair = max(pair_counts, key=pair_counts.get)
+            most_common_pair = max(pair_counts, key=lambda x: pair_counts[x])
             
             if pair_counts[most_common_pair] < min_merge_count:
                 # if the pair is not common enough, we're done
@@ -86,7 +89,7 @@ class OptimizedBPETokenizer(ChunkedBPETokenizer):
         self.vocab_size = len(vocab)
         print("Training complete")
 
-    def _preprocess_text_encode(self, text: str) -> list[tuple[str, list[bytes]]]:
+    def _preprocess_text_encode(self, text: str) -> list[tuple[str, list[Token]]]:
         """Convert a string to a list of chunks of tokens (UTF-8 bytes)
         Returns:
             chunks: list of (text_chunk, byte_chunk) tuples
@@ -97,7 +100,7 @@ class OptimizedBPETokenizer(ChunkedBPETokenizer):
         chunks = [(text_chunk, list(text_chunk.encode("utf-8"))) for text_chunk in text_chunks]
         return chunks
 
-    def _preprocess_text_train(self, text: str) -> list[tuple[list[bytes], int]]:
+    def _preprocess_text_train(self, text: str) -> list[WeightedChunk]:
         """Convert a string to a list of chunks of tokens (UTF-8 bytes) with chunk deduplication
         Returns:
             chunks: list of (byte_chunk, num_copies) tuples
@@ -105,8 +108,8 @@ class OptimizedBPETokenizer(ChunkedBPETokenizer):
                     num_copies: number of copies of the chunk
         """
         text_chunks = re.findall(self.split_regex, text)
-        chunk_counts = list(Counter(text_chunks).items())
-        chunks = [(list(chunk_text.encode("utf-8")), num_copies) for chunk_text, num_copies in chunk_counts]
+        chunk_counts = Counter(text_chunks)
+        chunks = [(list(chunk_text.encode("utf-8")), num_copies) for chunk_text, num_copies in chunk_counts.items()]
         return chunks
     
     def _postprocess_text(self, byte_sequences: list[bytes]) -> str:

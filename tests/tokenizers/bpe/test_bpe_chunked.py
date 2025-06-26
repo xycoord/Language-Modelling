@@ -1,6 +1,9 @@
 import pytest
 from src.tokenizers.bpe.chunked import ChunkedBPETokenizer
-from src.tokenizers.bpe.optimized import OptimizedBPETokenizer
+from tokenizers.bpe.deduplicated import DeduplicatedBPETokenizer
+from src.tokenizers.bpe.incremental import IncrementalBPETokenizer
+from src.tokenizers.bpe.fast_max import FastMaxBPETokenizer
+from src.tokenizers.bpe.parallel import ParallelBPETokenizer
 from src.tokenizers.bpe.utils import GPT2_SPLIT_PATTERN, GPT4_SPLIT_PATTERN
 import regex as re
 
@@ -11,7 +14,10 @@ from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_co
 
 @pytest.fixture(params=[
     ChunkedBPETokenizer,
-    OptimizedBPETokenizer
+    DeduplicatedBPETokenizer,
+    IncrementalBPETokenizer,
+    FastMaxBPETokenizer,
+    ParallelBPETokenizer,
 ])
 def chunked_tokenizer_class(request):
     """Parameterized fixture for tokenizers that support split patterns."""
@@ -127,8 +133,8 @@ def test_save_load_with_gpt_patterns(chunked_tokenizer_class, temp_tokenizer_fil
 # --- Cross-Compatibility Tests ---
 
 @pytest.mark.parametrize("save_class,load_class", [
-    (ChunkedBPETokenizer, OptimizedBPETokenizer),
-    (OptimizedBPETokenizer, ChunkedBPETokenizer),
+    (ChunkedBPETokenizer, DeduplicatedBPETokenizer),
+    (DeduplicatedBPETokenizer, ChunkedBPETokenizer),
 ])
 def test_cross_compatibility_save_load(save_class, load_class, temp_tokenizer_file):
     """Test that ChunkedBPE and OptimizedBPE files are interchangeable."""
@@ -145,8 +151,8 @@ def test_cross_compatibility_save_load(save_class, load_class, temp_tokenizer_fi
 # ================================ Test cross-compatibility ================================
 
 @pytest.mark.parametrize("save_class,load_class", [
-    (ChunkedBPETokenizer, OptimizedBPETokenizer),
-    (OptimizedBPETokenizer, ChunkedBPETokenizer),
+    (ChunkedBPETokenizer, DeduplicatedBPETokenizer),
+    (DeduplicatedBPETokenizer, ChunkedBPETokenizer),
 ])
 def test_cross_compatibility_preserves_encoding(save_class, load_class, temp_tokenizer_file):
     """Test that cross-compatibility preserves encoding behavior."""
@@ -173,8 +179,8 @@ def test_cross_compatibility_preserves_encoding(save_class, load_class, temp_tok
 
 
 @pytest.mark.parametrize("save_class,load_class", [
-    (ChunkedBPETokenizer, OptimizedBPETokenizer),
-    (OptimizedBPETokenizer, ChunkedBPETokenizer),
+    (ChunkedBPETokenizer, DeduplicatedBPETokenizer),
+    (DeduplicatedBPETokenizer, ChunkedBPETokenizer),
 ])
 def test_cross_compatibility_preserves_decoding(save_class, load_class, temp_tokenizer_file):
     """Test that cross-compatibility preserves decoding behavior."""
@@ -207,7 +213,7 @@ def test_cross_compatibility_with_custom_patterns():
     
     try:
         chunked.save(temp_path)
-        optimized = OptimizedBPETokenizer.load(temp_path)
+        optimized = DeduplicatedBPETokenizer.load(temp_path)
         
         assert_tokenizers_equivalent(chunked, optimized)
         

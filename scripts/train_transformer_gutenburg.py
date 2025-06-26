@@ -10,7 +10,7 @@ from pathlib import Path
 
 from models.transformer import TransformerLanguageModel
 from datasets.gutenberg_dataset import GutenbergDataset, load_gutenberg_texts
-from tokenizers import Tokenizer, OptimizedBPETokenizer
+from tokenizers import Tokenizer, DeduplicatedBPETokenizer
 from datasets.offset_sampler import OffsetSampler
 
 from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
@@ -135,7 +135,7 @@ def main():
     data_path = Path(config.data_dir) / 'gutenberg_corpus'
     texts, filenames = load_gutenberg_texts(data_path)
 
-    tokenizer = OptimizedBPETokenizer.load(Path(config.data_dir) / 'tokenizers' / 'gutenberg_tokenizer_4096.json')
+    tokenizer = DeduplicatedBPETokenizer.load(Path(config.data_dir) / 'tokenizers' / 'gutenberg_tokenizer_4096.json')
         
     train_dataset, val_dataset = GutenbergDataset.create_split_pair(
         texts, tokenizer, train_split=config.train_split, block_size=config.block_size)

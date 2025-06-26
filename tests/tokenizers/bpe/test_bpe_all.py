@@ -1,7 +1,10 @@
 import pytest
 from src.tokenizers.bpe.basic import BasicBPETokenizer
 from src.tokenizers.bpe.chunked import ChunkedBPETokenizer
-from src.tokenizers.bpe.optimized import OptimizedBPETokenizer
+from tokenizers.bpe.deduplicated import DeduplicatedBPETokenizer
+from src.tokenizers.bpe.incremental import IncrementalBPETokenizer
+from src.tokenizers.bpe.fast_max import FastMaxBPETokenizer
+from src.tokenizers.bpe.parallel import ParallelBPETokenizer
 import unicodedata
 import json
 import os
@@ -11,7 +14,10 @@ from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_co
 @pytest.fixture(params=[
     BasicBPETokenizer,
     ChunkedBPETokenizer,
-    OptimizedBPETokenizer
+    DeduplicatedBPETokenizer,
+    IncrementalBPETokenizer,
+    FastMaxBPETokenizer,
+    ParallelBPETokenizer,
 ])
 def tokenizer_class(request):
     """Parameterized fixture providing all tokenizer classes."""
@@ -124,7 +130,7 @@ def test_training_increases_vocab_size(fresh_tokenizer):
 
 def test_training_with_target_less_than_base_size_fails(fresh_tokenizer):
     """Test that training with target vocab size < 256 raises assertion error."""
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="Target vocabulary size must be >= the current vocabulary size"):
         fresh_tokenizer.train("hello world", target_vocab_size=255)
 
 
@@ -640,7 +646,7 @@ def test_load_basic_vs_chunked_type_mismatch():
             ChunkedBPETokenizer.load(basic_file)
         
         with pytest.raises(ValueError):
-            OptimizedBPETokenizer.load(basic_file)
+            DeduplicatedBPETokenizer.load(basic_file)
     
     finally:
         os.unlink(chunked_file)

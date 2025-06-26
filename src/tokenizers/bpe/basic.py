@@ -47,9 +47,12 @@ class BasicBPETokenizer(Tokenizer):
         
         Args:
             text: Training text as a string
-            target_vocab_size: Desired vocabulary size (must be >= 256) 
+            target_vocab_size: Desired vocabulary size (must be >= current vocab size) 
+            min_merge_count: Minimum number of occurrences for a pair to be merged
         """
-        assert target_vocab_size >= self.vocab_size
+        if target_vocab_size < self.vocab_size:
+            raise ValueError("Target vocabulary size must be >= the current vocabulary size")
+        
         next_token = self.vocab_size
 
         print("Preprocessing text...")

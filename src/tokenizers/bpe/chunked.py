@@ -64,9 +64,12 @@ class ChunkedBPETokenizer(Tokenizer):
         
         Args:
             text: Training text as a string
-            target_vocab_size: Desired vocabulary size (must be >= 256) 
+            target_vocab_size: Desired vocabulary size (must be >= current vocab size) 
+            min_merge_count: Minimum number of occurrences for a pair to be merged
         """
-        assert target_vocab_size >= self.vocab_size
+        if target_vocab_size < self.vocab_size:
+            raise ValueError("Target vocabulary size must be >= the current vocabulary size")
+        
         next_token = self.vocab_size
 
         print("Preprocessing text...")
@@ -80,13 +83,13 @@ class ChunkedBPETokenizer(Tokenizer):
 
             pair_counts = {}
             for chunk in chunks:
-                pair_counts.update(count_pairs(chunk, counts=pair_counts))
+                count_pairs(chunk, counts=pair_counts)
             
             if not pair_counts: 
                 # no more pairs to merge, we're done
                 break
 
-            most_common_pair = max(pair_counts, key=pair_counts.get)
+            most_common_pair = max(pair_counts, key=lambda x: pair_counts[x])
             if pair_counts[most_common_pair] < min_merge_count:
                 # if the pair is not common enough, we're done
                 break

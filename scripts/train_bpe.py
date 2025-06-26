@@ -1,4 +1,4 @@
-from tokenizers import OptimizedBPETokenizer
+from tokenizers import DeduplicatedBPETokenizer
 from pathlib import Path
 
 data_path = Path("data/shakespeare.txt")
@@ -9,7 +9,7 @@ if not data_path.exists():
 with open(data_path, "r", encoding="utf-8") as f:
     text = f.read()
 
-tokenizer = OptimizedBPETokenizer()
+tokenizer = DeduplicatedBPETokenizer()
 
 tokenizer.train(text, target_vocab_size=4096, min_merge_count=10)
 

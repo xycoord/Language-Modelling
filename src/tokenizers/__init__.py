@@ -4,7 +4,10 @@ from .char import CharTokenizer
 from .byte import ByteTokenizer
 from .bpe.basic import BasicBPETokenizer
 from .bpe.chunked import ChunkedBPETokenizer
-from .bpe.optimized import OptimizedBPETokenizer
+from .bpe.deduplicated import DeduplicatedBPETokenizer
+from .bpe.incremental import IncrementalBPETokenizer
+from .bpe.fast_max import FastMaxBPETokenizer
+from .bpe.parallel import ParallelBPETokenizer
 
 __all__ = [
     'Tokenizer',
@@ -12,5 +15,8 @@ __all__ = [
     'ByteTokenizer',
     'BasicBPETokenizer',
     'ChunkedBPETokenizer',
-    'OptimizedBPETokenizer',
+    'DeduplicatedBPETokenizer',
+    'IncrementalBPETokenizer',
+    'ParallelBPETokenizer',
+    'FastMaxBPETokenizer',
 ]
