@@ -1,5 +1,5 @@
 import pytest
-from src.tokenizers.bpe.basic import BasicBPETokenizer
+from src.lm_tokenizers.bpe.basic import BasicBPETokenizer
 import json
 
 @pytest.fixture

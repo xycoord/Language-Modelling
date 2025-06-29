@@ -1,5 +1,5 @@
 import pytest
-from src.tokenizers.char import CharTokenizer
+from src.lm_tokenizers.char import CharTokenizer
 
 
 def test_vocab_creation():

@@ -8,12 +8,12 @@ from pathlib import Path
 
 # import wandb
 
-from models.transformer import TransformerLanguageModel
-from datasets.gutenberg_dataset import GutenbergDataset, load_gutenberg_texts
-from tokenizers import Tokenizer, DeduplicatedBPETokenizer
-from datasets.offset_sampler import OffsetSampler
+from lm_models.transformer import TransformerLanguageModel
+from lm_datasets.gutenberg_dataset import GutenbergDataset, load_gutenberg_texts
+from lm_tokenizers import Tokenizer, DeduplicatedBPETokenizer
+from lm_datasets.offset_sampler import OffsetSampler
 
-from utils import Config, ArgsParser, setup_precision, get_autocast_ctx
+from script_utils import Config, ArgsParser, setup_precision, get_autocast_ctx
 
 
 def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_tokens: int, config: Config) -> str:

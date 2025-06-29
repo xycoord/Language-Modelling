@@ -1,4 +1,4 @@
-from src.models.transformer.components import AttentionHead
+from src.lm_models.transformer.components import AttentionHead
 import torch
 import pytest
 

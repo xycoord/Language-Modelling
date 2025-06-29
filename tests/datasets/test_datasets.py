@@ -3,9 +3,9 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from src.datasets.language_dataset import LanguageDataset
-from src.datasets.gutenberg_dataset import GutenbergDataset
-from src.tokenizers.byte import ByteTokenizer
+from src.lm_datasets.language_dataset import LanguageDataset
+from src.lm_datasets.gutenberg_dataset import GutenbergDataset
+from src.lm_tokenizers.byte import ByteTokenizer
 
 
 # --- Fixtures ---

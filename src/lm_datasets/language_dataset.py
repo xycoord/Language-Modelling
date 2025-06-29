@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from tokenizers.base import Tokenizer
+from lm_tokenizers.base import Tokenizer
 
 class LanguageDataset(Dataset):
     """

@@ -1,6 +1,6 @@
 import pytest
 
-from src.models.transformer.config import TransformerConfig
+from src.lm_models.transformer.config import TransformerConfig
 
 
 @pytest.mark.parametrize("param_name", [

@@ -1,4 +1,4 @@
-from src.utils.mixed_precision import setup_precision, get_autocast_ctx
+from src.script_utils.mixed_precision import setup_precision, get_autocast_ctx
 
 import pytest
 from unittest.mock import patch, MagicMock

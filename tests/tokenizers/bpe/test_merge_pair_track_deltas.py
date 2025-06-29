@@ -2,7 +2,7 @@ import pytest
 from collections import defaultdict
 from copy import deepcopy
 
-from src.tokenizers.bpe.utils import merge_pair_track_deltas, merge_pair_track_deltas_in_place
+from src.lm_tokenizers.bpe.utils import merge_pair_track_deltas, merge_pair_track_deltas_in_place
 
 
 # Adapters

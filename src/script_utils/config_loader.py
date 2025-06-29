@@ -5,7 +5,7 @@ import uuid
 import yaml
 from functools import reduce
 
-from models import BigramConfig, TransformerConfig
+from lm_models import BigramConfig, TransformerConfig
 
 ModelConfig = Union[BigramConfig, TransformerConfig]
 

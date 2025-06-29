@@ -1,5 +1,5 @@
-from src.models.transformer.components import MultiHeadAttention, ParallelMultiHeadAttention
-from src.models.transformer.config import TransformerConfig
+from src.lm_models.transformer.components import MultiHeadAttention, ParallelMultiHeadAttention
+from src.lm_models.transformer.config import TransformerConfig
 import pytest
 import torch
 

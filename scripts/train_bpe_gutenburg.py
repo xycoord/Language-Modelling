@@ -1,6 +1,6 @@
-from tokenizers import FastMaxBPETokenizer
+from lm_tokenizers import FastMaxBPETokenizer
 from pathlib import Path
-from datasets.gutenberg_dataset import load_gutenberg_texts
+from lm_datasets.gutenberg_dataset import load_gutenberg_texts
 
 data_path = Path("data/gutenberg_corpus")
 

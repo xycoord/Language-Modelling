@@ -3,10 +3,10 @@ from torch import Tensor
 from torch.nn import functional as F
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from models.bigram import BigramLanguageModel, BigramConfig
-from datasets.language_dataset import LanguageDataset
-from tokenizers import CharTokenizer, Tokenizer
-from utils import ArgsParser, Config
+from lm_models.bigram import BigramLanguageModel, BigramConfig
+from lm_datasets.language_dataset import LanguageDataset
+from lm_tokenizers import CharTokenizer, Tokenizer
+from script_utils import ArgsParser, Config
 from pathlib import Path
 
 def main():

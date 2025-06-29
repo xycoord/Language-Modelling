@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import Mock
-import torch
-from src.datasets.offset_sampler import OffsetSampler, OFFSET_MULTIPLIER
+from src.lm_datasets.offset_sampler import OffsetSampler, OFFSET_MULTIPLIER
 
 # ========== Fixtures ==========
 

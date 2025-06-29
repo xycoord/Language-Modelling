@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from src.models.transformer.model import TransformerLanguageModel
-from src.models.transformer.config import TransformerConfig
+from src.lm_models.transformer.model import TransformerLanguageModel
+from src.lm_models.transformer.config import TransformerConfig
 
 @pytest.fixture(
     params=[

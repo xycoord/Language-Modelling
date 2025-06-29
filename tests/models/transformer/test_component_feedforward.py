@@ -1,6 +1,6 @@
 import torch
 import pytest
-from src.models.transformer.components import FeedForward
+from src.lm_models.transformer.components import FeedForward
 
 # ================================ Test init ================================
 

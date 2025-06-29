@@ -1,10 +1,10 @@
 import pytest
-from src.tokenizers.bpe.basic import BasicBPETokenizer
-from src.tokenizers.bpe.chunked import ChunkedBPETokenizer
-from tokenizers.bpe.deduplicated import DeduplicatedBPETokenizer
-from src.tokenizers.bpe.incremental import IncrementalBPETokenizer
-from src.tokenizers.bpe.fast_max import FastMaxBPETokenizer
-from src.tokenizers.bpe.parallel import ParallelBPETokenizer
+from src.lm_tokenizers.bpe.basic import BasicBPETokenizer
+from src.lm_tokenizers.bpe.chunked import ChunkedBPETokenizer
+from src.lm_tokenizers.bpe.deduplicated import DeduplicatedBPETokenizer
+from src.lm_tokenizers.bpe.incremental import IncrementalBPETokenizer
+from src.lm_tokenizers.bpe.fast_max import FastMaxBPETokenizer
+from src.lm_tokenizers.bpe.parallel import ParallelBPETokenizer
 import unicodedata
 import json
 import os

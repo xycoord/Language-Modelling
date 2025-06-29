@@ -3,7 +3,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from tokenizers.base import Tokenizer
+from lm_tokenizers.base import Tokenizer
 
 
 def load_gutenberg_texts(corpus_dir="gutenberg_corpus", file_pattern="*.txt") -> tuple[list[str], list[str]]:

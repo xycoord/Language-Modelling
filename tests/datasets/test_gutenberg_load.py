@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from src.datasets.gutenberg_dataset import load_gutenberg_texts
+from src.lm_datasets.gutenberg_dataset import load_gutenberg_texts
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-from src.utils.args_parser import ArgsParser
+from src.script_utils.args_parser import ArgsParser
 import pytest
 import argparse
 

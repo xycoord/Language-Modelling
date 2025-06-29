@@ -1,7 +1,7 @@
 import pytest
 import yaml
 import re
-from src.utils.config_loader import Config
+from src.script_utils.config_loader import Config
 
 
 # =============================================================================

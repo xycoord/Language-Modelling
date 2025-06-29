@@ -1,4 +1,4 @@
-from tokenizers import DeduplicatedBPETokenizer
+from lm_tokenizers import DeduplicatedBPETokenizer
 from pathlib import Path
 
 data_path = Path("data/shakespeare.txt")

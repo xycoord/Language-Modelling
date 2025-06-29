@@ -1,7 +1,7 @@
 import torch
 import pytest
-from src.models.transformer.components import TransformerBlock
-from src.models.transformer.config import TransformerConfig
+from src.lm_models.transformer.components import TransformerBlock
+from src.lm_models.transformer.config import TransformerConfig
 
 # ================================ Test init ================================
 
