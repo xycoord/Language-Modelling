@@ -14,7 +14,9 @@ dependencies = [
     "tqdm",
     "regex",
     "pyyaml",
-    "wandb"
+    "wandb",
+    "datasets",
+    "hf_transfer",
 ]
 
 [project.optional-dependencies]

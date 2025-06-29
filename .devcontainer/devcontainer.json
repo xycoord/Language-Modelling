@@ -20,7 +20,9 @@
     }
   },
   "containerEnv": {
-    "PIP_ROOT_USER_ACTION": "ignore"
+    "PIP_ROOT_USER_ACTION": "ignore",
+    "HF_TRANSFER": "1",
+    "HF_DATASETS_CACHE": "/workspace/.cache/huggingface/datasets/"
   },
   "postCreateCommand": "pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -e .[dev]",
   
