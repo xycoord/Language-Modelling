@@ -9,7 +9,7 @@ import unicodedata
 import json
 import os
 from unittest.mock import patch
-from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_content
+from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_content, train_tokenizer_with_text
 
 @pytest.fixture(params=[
     BasicBPETokenizer,
@@ -32,10 +32,10 @@ def fresh_tokenizer(tokenizer_class):
 
 @pytest.fixture
 def trained_tokenizer(tokenizer_class):
-    """Create a tokenizer trained on sample text."""
+    """Create a tokenizer trained on sample text using appropriate preprocessing."""
     tokenizer = tokenizer_class()
     training_text = "hello world! this is a test. hello world again and again."
-    tokenizer.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, training_text, target_vocab_size=300)
     return tokenizer
 
 
@@ -122,7 +122,7 @@ def test_training_increases_vocab_size(fresh_tokenizer):
     training_text = "hello world hello world hello world"
     target_size = 300
     
-    fresh_tokenizer.train(training_text, target_size)
+    train_tokenizer_with_text(fresh_tokenizer, training_text, target_vocab_size=target_size)
     
     assert fresh_tokenizer.vocab_size > initial_size, "Vocab should have grown"
     assert fresh_tokenizer.vocab_size <= target_size, "Vocab should not exceed target size"
@@ -130,13 +130,14 @@ def test_training_increases_vocab_size(fresh_tokenizer):
 
 def test_training_with_target_less_than_base_size_fails(fresh_tokenizer):
     """Test that training with target vocab size < 256 raises assertion error."""
+    training_text = "hello world"
     with pytest.raises(ValueError, match="Target vocabulary size must be >= the current vocabulary size"):
-        fresh_tokenizer.train("hello world", target_vocab_size=255)
+        train_tokenizer_with_text(fresh_tokenizer, training_text, target_vocab_size=255)
 
 
 def test_training_with_minimal_target_size(fresh_tokenizer):
     """Test training with target size equal to base size."""
-    fresh_tokenizer.train("hello world", target_vocab_size=256)
+    train_tokenizer_with_text(fresh_tokenizer, "hello world", target_vocab_size=256)
     assert fresh_tokenizer.vocab_size == 256, "Vocab should remain unchanged"
 
 
@@ -150,7 +151,7 @@ def test_training_affects_encoding_efficiency(tokenizer_class):
     
     untrained_tokens = untrained.encode(test_text)
     
-    trained.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(trained, training_text, target_vocab_size=300)
     trained_tokens = trained.encode(test_text)
     
     assert len(trained_tokens) <= len(untrained_tokens), "Training should reduce token count for repeated patterns"
@@ -176,7 +177,7 @@ def test_training_with_insufficient_data(fresh_tokenizer):
     short_text = "ab"
     large_target = 1000
     
-    fresh_tokenizer.train(short_text, target_vocab_size=large_target)
+    train_tokenizer_with_text(fresh_tokenizer, short_text, target_vocab_size=large_target)
     
     assert fresh_tokenizer.vocab_size < large_target, "Vocab should be much smaller than target"
     
@@ -264,7 +265,7 @@ def test_text_with_only_punctuation(fresh_tokenizer):
 def test_training_on_empty_string(fresh_tokenizer):
     """Test that training on empty string doesn't break anything."""
     initial_size = fresh_tokenizer.vocab_size
-    fresh_tokenizer.train("", target_vocab_size=300)
+    train_tokenizer_with_text(fresh_tokenizer, "", target_vocab_size=300)
     
     assert fresh_tokenizer.vocab_size == initial_size, "Vocab size should remain unchanged"
     
@@ -277,7 +278,7 @@ def test_training_on_single_character(fresh_tokenizer):
     """Test training on text with only one unique character."""
     single_char_text = "a" * 100
     
-    fresh_tokenizer.train(single_char_text, target_vocab_size=300)
+    train_tokenizer_with_text(fresh_tokenizer, single_char_text, target_vocab_size=300)
     
     tokens = fresh_tokenizer.encode("aaa")
     decoded = fresh_tokenizer.decode(tokens)
@@ -291,7 +292,7 @@ def test_multiple_training_sessions(fresh_tokenizer):
     
     # First training with substantial repetitive text
     first_training_text = "the quick brown fox jumps over the lazy dog. " * 50
-    fresh_tokenizer.train(first_training_text, target_vocab_size=300)
+    train_tokenizer_with_text(fresh_tokenizer, first_training_text, target_vocab_size=300)
     intermediate_size = fresh_tokenizer.vocab_size
     
     # Verify first training actually increased vocab size
@@ -300,7 +301,7 @@ def test_multiple_training_sessions(fresh_tokenizer):
     # Second training with different patterns - behaviour may vary by implementation
     # but should not crash
     second_training_text = "pack my box with five dozen liquor jugs. " * 50
-    fresh_tokenizer.train(second_training_text, target_vocab_size=350)
+    train_tokenizer_with_text(fresh_tokenizer, second_training_text, target_vocab_size=350)
     
     # Should still be able to encode/decode both types of text
     test_texts = [
@@ -358,7 +359,7 @@ def test_min_merge_count_ordering(tokenizer_class):
     for count in min_merge_counts:
         # Create fresh tokenizer instance for each test
         test_tokenizer = tokenizer_class()
-        test_tokenizer.train(training_text, target_vocab, min_merge_count=count)
+        train_tokenizer_with_text(test_tokenizer, training_text, target_vocab_size=target_vocab, min_merge_count=count)
         results[count] = test_tokenizer.vocab_size
     
     # Verify ordering: higher min_merge_count ≤ lower min_merge_count
@@ -506,7 +507,7 @@ def test_failed_save_preserves_original_serialization_error(trained_tokenizer, t
     
     # Create different tokenizer and try to save with mocked failure
     different_tokenizer = trained_tokenizer.__class__()
-    different_tokenizer.train("different training text", 350)
+    train_tokenizer_with_text(different_tokenizer, "different training text", target_vocab_size=350)
     
     with patch('json.dump', side_effect=ValueError("Serialization failed")):
         with pytest.raises(ValueError, match="Serialization failed"):

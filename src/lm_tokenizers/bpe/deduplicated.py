@@ -31,7 +31,7 @@ class DeduplicatedBPETokenizer(ChunkedBPETokenizer):
 
         return token_seq
 
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
+    def train(self, chunks: list[WeightedChunk], target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Merges across chunks are not allowed.
         Chunks are deduplicated by their text content for efficiency.
@@ -46,9 +46,6 @@ class DeduplicatedBPETokenizer(ChunkedBPETokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        chunks = self._preprocess_text_train(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -100,7 +97,7 @@ class DeduplicatedBPETokenizer(ChunkedBPETokenizer):
         chunks = [(text_chunk, list(text_chunk.encode("utf-8"))) for text_chunk in text_chunks]
         return chunks
 
-    def _preprocess_text_train(self, text: str) -> list[WeightedChunk]:
+    def preprocess_train(self, text: str) -> list[WeightedChunk]:
         """Convert a string to a list of chunks of tokens (UTF-8 bytes) with chunk deduplication
         Returns:
             chunks: list of (byte_chunk, num_copies) tuples

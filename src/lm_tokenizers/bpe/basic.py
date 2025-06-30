@@ -19,7 +19,7 @@ class BasicBPETokenizer(Tokenizer):
 
     def encode(self, text: str) -> list[Token]:
         """Convert a string to a list of tokens"""
-        token_seq = self._preprocess_text(text)
+        token_seq = self.preprocess(text)
 
         while len(token_seq) >= 2:
             pair_counts = count_pairs(token_seq)
@@ -41,7 +41,7 @@ class BasicBPETokenizer(Tokenizer):
         return text
 
 
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
+    def train(self, token_seq: list[Token], target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Modifies the tokenizer in-place.
         
@@ -54,9 +54,6 @@ class BasicBPETokenizer(Tokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        token_seq = self._preprocess_text(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -94,7 +91,7 @@ class BasicBPETokenizer(Tokenizer):
         self.vocab_size = len(vocab)
         print("Training complete")
 
-    def _preprocess_text(self, text: str) -> list[Token]:
+    def preprocess(self, text: str) -> list[Token]:
         """Convert a string to a list of non-merged tokens (UTF-8 bytes)"""
         text_bytes = text.encode('utf-8')
         token_seq = list(text_bytes)

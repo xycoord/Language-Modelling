@@ -15,7 +15,7 @@ class IncrementalBPETokenizer(DeduplicatedBPETokenizer):
     - Chunk caching during encoding to avoid redundant BPE operations
     - Chunk deduplication during training for efficiency
     """
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
+    def train(self, chunks: list[WeightedChunk], target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Merges across chunks are not allowed.
         Chunks are deduplicated by their text content for efficiency.
@@ -30,9 +30,6 @@ class IncrementalBPETokenizer(DeduplicatedBPETokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        chunks = self._preprocess_text_train(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()

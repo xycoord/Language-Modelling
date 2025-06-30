@@ -1,6 +1,7 @@
 import pytest
 from src.lm_tokenizers.bpe.basic import BasicBPETokenizer
 import json
+from .test_helpers import train_tokenizer_with_text
 
 @pytest.fixture
 def basic_tokenizer():
@@ -33,7 +34,7 @@ def test_basic_tokenizer_training_on_long_continuous_text(basic_tokenizer):
     """Test BasicBPETokenizer training on long continuous text."""
     continuous_text = "word1word2word3" * 100
     
-    basic_tokenizer.train(continuous_text, target_vocab_size=300)
+    train_tokenizer_with_text(basic_tokenizer, continuous_text, target_vocab_size=300)
     
     test_text = "word1word2word3"
     tokens = basic_tokenizer.encode(test_text)
@@ -48,7 +49,7 @@ def test_basic_tokenizer_handles_text_boundaries_as_continuous():
     tokenizer = BasicBPETokenizer()
     
     text = "prefix_suffix prefix_suffix prefix_suffix" * 50
-    tokenizer.train(text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, text, target_vocab_size=300)
     
     test_text = "prefix_suffix"
     tokens = tokenizer.encode(test_text)

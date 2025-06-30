@@ -5,6 +5,9 @@
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   },
+  "runArgs": [
+        "--memory=8g",
+  ],
   
   "customizations": {
     "vscode": {

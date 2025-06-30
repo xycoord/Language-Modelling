@@ -24,7 +24,7 @@ class ParallelBPETokenizer(DeduplicatedBPETokenizer):
     - Chunk caching during encoding to avoid redundant BPE operations
     - Chunk deduplication during training for efficiency
     """
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2, num_workers: Optional[int] = None):
+    def train(self, chunks: list[WeightedChunk], target_vocab_size: int, min_merge_count: int = 2, num_workers: Optional[int] = None):
         """Learn BPE merges from text to expand vocabulary.
         
         Args:
@@ -44,9 +44,6 @@ class ParallelBPETokenizer(DeduplicatedBPETokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        chunks = self._preprocess_text_train(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -95,7 +92,7 @@ class SynchronousWorkerPool:
         pair_counts: Global counts of all character pairs across all chunks
     """
 
-    WORKER_TIMEOUT = 10
+    WORKER_TIMEOUT = 30
 
     def __init__(self, chunks: list[WeightedChunk], num_workers: Optional[int]):
         if num_workers is None:

@@ -10,8 +10,8 @@ with open(data_path, "r", encoding="utf-8") as f:
     text = f.read()
 
 tokenizer = DeduplicatedBPETokenizer()
-
-tokenizer.train(text, target_vocab_size=4096, min_merge_count=10)
+chunks = tokenizer.preprocess_train(text)
+tokenizer.train(chunks, target_vocab_size=4096, min_merge_count=10)
 
 print(tokenizer.vocab_size)
 

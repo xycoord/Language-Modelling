@@ -17,7 +17,7 @@ class FastMaxBPETokenizer(DeduplicatedBPETokenizer):
     - Incremental pair counting to only update counts for pairs that have changed
     - Stores which chunks contain each pair for efficient searching
     """
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
+    def train(self, chunks: list[WeightedChunk], target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Merges across chunks are not allowed.
         Chunks are deduplicated by their text content for efficiency.
@@ -32,9 +32,6 @@ class FastMaxBPETokenizer(DeduplicatedBPETokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        chunks = self._preprocess_text_train(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()

@@ -43,3 +43,22 @@ def create_test_file_with_content(content, suffix='.json'):
             json.dump(content, f)
         temp_path = f.name
     return Path(temp_path)
+
+def train_tokenizer_with_text(tokenizer, text, **kwargs):
+    """
+    Helper to train tokenizer with appropriate preprocessing.
+    
+    Uses preprocess() for Basic and Chunked tokenizers,
+    preprocess_train() for all others (which includes deduplication).
+    """
+    from src.lm_tokenizers.bpe.basic import BasicBPETokenizer
+    from src.lm_tokenizers.bpe.chunked import ChunkedBPETokenizer
+    
+    # Check exact class type since all tokenizers inherit from BasicBPETokenizer
+    tokenizer_class = type(tokenizer)
+    if tokenizer_class in (BasicBPETokenizer, ChunkedBPETokenizer):
+        preprocessed_data = tokenizer.preprocess(text)
+    else:
+        preprocessed_data = tokenizer.preprocess_train(text)
+    
+    return tokenizer.train(preprocessed_data, **kwargs)

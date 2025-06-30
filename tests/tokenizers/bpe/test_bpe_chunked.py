@@ -10,7 +10,7 @@ import regex as re
 import tempfile
 import json
 import os
-from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_content
+from .test_helpers import assert_tokenizers_equivalent, create_test_file_with_content, train_tokenizer_with_text
 
 @pytest.fixture(params=[
     ChunkedBPETokenizer,
@@ -49,7 +49,7 @@ def test_split_pattern_with_training(chunked_tokenizer_class):
     tokenizer = chunked_tokenizer_class(split_pattern=r'\w+|\W+')
     
     training_text = "hello world! " * 150
-    tokenizer.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, training_text, target_vocab_size=300)
     
     test_text = "hello world!"
     tokens = tokenizer.encode(test_text)
@@ -140,7 +140,7 @@ def test_cross_compatibility_save_load(save_class, load_class, temp_tokenizer_fi
     """Test that ChunkedBPE and OptimizedBPE files are interchangeable."""
     tokenizer = save_class(split_pattern=r'\w+|\W+')
     training_text = "hello world! hello world! " * 50
-    tokenizer.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, training_text, target_vocab_size=300)
     
     tokenizer.save(temp_tokenizer_file)
     
@@ -158,7 +158,7 @@ def test_cross_compatibility_preserves_encoding(save_class, load_class, temp_tok
     """Test that cross-compatibility preserves encoding behavior."""
     tokenizer = save_class()
     training_text = "Hello! How's it going? " * 50
-    tokenizer.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, training_text, target_vocab_size=300)
     
     test_texts = [
         "Hello! How's it going?",
@@ -186,7 +186,7 @@ def test_cross_compatibility_preserves_decoding(save_class, load_class, temp_tok
     """Test that cross-compatibility preserves decoding behavior."""
     tokenizer = save_class()
     training_text = "decode test text " * 50
-    tokenizer.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(tokenizer, training_text, target_vocab_size=300)
     
     test_text = "decode test text"
     tokens = tokenizer.encode(test_text)
@@ -206,7 +206,7 @@ def test_cross_compatibility_with_custom_patterns():
     
     chunked = ChunkedBPETokenizer(split_pattern=custom_pattern)
     training_text = "word123 test456! " * 50
-    chunked.train(training_text, target_vocab_size=300)
+    train_tokenizer_with_text(chunked, training_text, target_vocab_size=300)
     
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
         temp_path = f.name

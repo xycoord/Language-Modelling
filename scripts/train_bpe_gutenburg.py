@@ -14,7 +14,8 @@ vocab_size = 10000
 min_merge_count = 10
 
 tokenizer = FastMaxBPETokenizer()
-tokenizer.train(text, target_vocab_size=vocab_size, min_merge_count=min_merge_count)
+chunks = tokenizer.preprocess_train(text)
+tokenizer.train(chunks, target_vocab_size=vocab_size, min_merge_count=min_merge_count)
 
 print(tokenizer.vocab_size)
 

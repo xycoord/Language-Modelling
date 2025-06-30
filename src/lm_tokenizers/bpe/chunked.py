@@ -27,7 +27,7 @@ class ChunkedBPETokenizer(Tokenizer):
 
     def encode(self, text: str) -> list[Token]:
         """Convert a string to a list of tokens"""
-        chunks = self._preprocess_text(text)
+        chunks = self.preprocess(text)
 
         token_seq = []
         for chunk in chunks:
@@ -57,7 +57,7 @@ class ChunkedBPETokenizer(Tokenizer):
         return text
 
 
-    def train(self, text: str, target_vocab_size: int, min_merge_count: int = 2):
+    def train(self, chunks: list[list[Token]], target_vocab_size: int, min_merge_count: int = 2):
         """Learn BPE merges from text to expand vocabulary.
         Merges across chunks are not allowed.
         Modifies the tokenizer in-place.
@@ -71,9 +71,6 @@ class ChunkedBPETokenizer(Tokenizer):
             raise ValueError("Target vocabulary size must be >= the current vocabulary size")
         
         next_token = self.vocab_size
-
-        print("Preprocessing text...")
-        chunks = self._preprocess_text(text)
 
         merges = self.merges.copy()
         vocab = self.vocab.copy()
@@ -113,7 +110,7 @@ class ChunkedBPETokenizer(Tokenizer):
         self.vocab_size = len(vocab)
         print("Training complete")
 
-    def _preprocess_text(self, text: str) -> list[list[Token]]:
+    def preprocess(self, text: str) -> list[list[Token]]:
         """Convert a string to a list of chunks of tokens (UTF-8 bytes)"""
         text_chunks = re.findall(self.split_regex, text)
         chunks = [list(chunk.encode("utf-8")) for chunk in text_chunks]

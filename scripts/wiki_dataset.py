@@ -1,11 +1,19 @@
-from datasets import load_dataset
+from lm_datasets.wikipedia.tokenizer_dataset import WikipediaPreprocessDataset
+from lm_tokenizers import FastMaxBPETokenizer, GPT4_SPLIT_PATTERN
+import time
 
-# Load English Wikipedia (most similar size + excellent quality)
-dataset = load_dataset("wikipedia", "20220301.en")
-print(f"Dataset size: {len(dataset['train'])}")
+tokenizer = FastMaxBPETokenizer()
 
-# Check capitalization quality
-for i in range(3):
-    text = dataset['train'][i]['text'][:10]
-    print(f"Sample {i}: {text}")
-    # Should see proper names, sentence capitals, etc.
+dataset = WikipediaPreprocessDataset()
+print(f"Loaded {len(dataset)} articles")
+
+chunks = dataset.process(
+    chunk_regex=GPT4_SPLIT_PATTERN,
+    batch_size=63, 
+    num_workers=7
+)  
+
+start_time = time.time()
+tokenizer.train(chunks, target_vocab_size=1000)
+end_time = time.time()
+print(f"Training took {end_time - start_time} seconds")
