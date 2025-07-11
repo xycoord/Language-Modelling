@@ -89,11 +89,15 @@ class PairCountTracker:
     @staticmethod
     def _init_counts_to_pairs(pair_counts: dict[TokenPair, int]) -> SortedDict:
         """Initialises the counts_to_pairs data structure to satisfy the invariants"""
-        counts_to_pairs = SortedDict()
+        counts_to_pairs = {}
         for pair, count in pair_counts.items():
             if count not in counts_to_pairs:
                 counts_to_pairs[count] = set()
             counts_to_pairs[count].add(pair)
+        counts_to_pairs = SortedDict(counts_to_pairs)
+        # Creating a dict first then converting to SortedDict is a premature optimisation
+        # but it takes the big O down from O(unique pairs * log k) to O(unique pairs + k log k)
+        # where k is the number of unique counts
         return counts_to_pairs
             
     def __len__(self) -> int:

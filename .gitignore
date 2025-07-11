@@ -198,3 +198,4 @@ cython_debug/
 wandb/
 
 data/gutenberg_corpus
+data/wiki_chunks.pkl.gz

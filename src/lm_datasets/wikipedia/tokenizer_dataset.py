@@ -76,7 +76,6 @@ class WikipediaPreprocessDataset(TorchDataset):
             global_counter = Counter()
             for batch_counter in tqdm(dataloader, desc="Counting chunks in parallel"):
                 global_counter.update(batch_counter)
-            
             print(f"Found {len(global_counter)} unique chunks")
             
             print("Encoding unique chunks to bytes...")
@@ -85,7 +84,6 @@ class WikipediaPreprocessDataset(TorchDataset):
                 (list(chunk_text.encode("utf-8")), count) 
                 for chunk_text, count in global_counter.items()
             ]
-            
             return weighted_chunks
         finally:
             if hasattr(dataloader, '_iterator') and dataloader._iterator is not None:

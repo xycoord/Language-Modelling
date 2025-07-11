@@ -92,7 +92,7 @@ class SynchronousWorkerPool:
         pair_counts: Global counts of all character pairs across all chunks
     """
 
-    WORKER_TIMEOUT = 30
+    WORKER_TIMEOUT = 200 
 
     def __init__(self, chunks: list[WeightedChunk], num_workers: Optional[int]):
         if num_workers is None:
@@ -101,6 +101,7 @@ class SynchronousWorkerPool:
             raise ValueError("Number of workers must be at least 1")
         
         self.num_workers: int = num_workers
+        print(f"Starting {self.num_workers} worker processes")
         
         self.chunks: list[WeightedChunk] = chunks
         self.pair_counts: Optional[PairCountTracker] = None
@@ -268,7 +269,7 @@ class AdaptiveWorkerPool(SynchronousWorkerPool):
         pair_counts: Global counts of all character pairs across all chunks
     """
 
-    def __init__(self, chunks, num_workers, threshold=0.003, window_size=5):
+    def __init__(self, chunks, num_workers, threshold=0.0015, window_size=5):
         super().__init__(chunks, num_workers)
         self.parallel_mode = None
         self.worker = None
