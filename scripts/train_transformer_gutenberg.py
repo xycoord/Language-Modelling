@@ -9,20 +9,21 @@ from pathlib import Path
 # import wandb
 
 from lm_models.transformer import TransformerLanguageModel
+from lm_models.transformer.kv_cache import KVCacheLayer
 from lm_datasets.gutenberg_dataset import GutenbergDataset, load_gutenberg_texts
 from lm_tokenizers import Tokenizer, DeduplicatedBPETokenizer
 from lm_datasets.offset_sampler import OffsetSampler
 
 from script_utils import Config, ArgsParser, setup_precision, get_autocast_ctx
 
-
 def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_tokens: int, config: Config) -> str:
     """Generate a single example from the model"""
     mixed_precision_ctx = get_autocast_ctx(config)
     model.eval()
-    idx = torch.zeros((1,1), dtype=torch.long).to(model.device)
+    kv_cache = tuple([KVCacheLayer.empty(model.config, 1, model.dtype, model.device) for _ in range(model.config.n_layers)])
+    context = torch.zeros((1,1), dtype=torch.long).to(model.device)
     with mixed_precision_ctx:
-        raw_prediction = model.generate(idx, max_new_tokens=max_tokens-1)[0].tolist()
+        raw_prediction = model.generate(context, max_new_tokens=max_tokens-1, kv_cache=kv_cache)[0].tolist()
     model.train()
     return tokenizer.decode(raw_prediction)
 

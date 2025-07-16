@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from src.lm_models.transformer.kv_cache import KVCacheLayer
 from src.lm_models.transformer.model import TransformerLanguageModel
 from src.lm_models.transformer.config import TransformerConfig
 
@@ -29,6 +30,46 @@ def config():
         dropout=0.0,
         parallel=True
     )
+
+# KV Cache fixtures
+
+@pytest.fixture
+def empty_kv_cache(model, config):
+    """Empty KV cache for the model"""
+    batch_size = 2  # Match sample_tokens batch size
+    return tuple([
+        KVCacheLayer.empty(config, batch_size, model.dtype, model.device) 
+        for _ in range(config.n_layers)
+    ])
+
+@pytest.fixture
+def pre_populated_kv_cache(model, config, sample_tokens):
+    """KV cache with some existing content"""
+    batch_size = sample_tokens.shape[0]
+    kv_cache = tuple([
+        KVCacheLayer.empty(config, batch_size, model.dtype, model.device) 
+        for _ in range(config.n_layers)
+    ])
+    # Populate with first few tokens
+    _ = model(sample_tokens[:, :5], kv_cache)
+    return kv_cache
+
+@pytest.fixture(params=[
+    "empty_cache",
+    "pre_populated_cache"
+])
+def kv_cache_state(request, empty_kv_cache, pre_populated_kv_cache):
+    """Parameterized fixture for different cache states"""
+    if request.param == "empty_cache":
+        return empty_kv_cache
+    else:
+        return pre_populated_kv_cache
+
+@pytest.fixture
+def different_batch_tokens(config):
+    """Tokens with different batch size for mismatch testing"""
+    return torch.randint(0, config.vocab_size, (3, 8))
+
 
 # Test init
 def test_init(config):
@@ -193,92 +234,193 @@ def test_forward_position_embedding_behavior(model, config):
     assert not torch.allclose(logits1[0, 1, :], logits1[0, 2, :], atol=1e-3), \
         "Same token at positions 1 and 2 should differ due to position embeddings"
 
+def test_forward_with_kv_cache_basic(model, sample_tokens, empty_kv_cache, device):
+    """Test forward pass accepts and works with KV cache"""
+    model = model.to(device)
+    sample_tokens = sample_tokens.to(device)
+    empty_kv_cache = tuple(layer.to(device) for layer in empty_kv_cache)
+    
+    logits = model(sample_tokens, empty_kv_cache)
+    
+    batch_size, seq_len = sample_tokens.shape
+    expected_shape = (batch_size, seq_len, model.config.vocab_size)
+    assert logits.shape == expected_shape, "Forward with KV cache should maintain shape contract"
+    assert torch.isfinite(logits).all(), "Logits should be finite with KV cache"
+
+def test_forward_position_embedding_with_kv_cache(model, config, pre_populated_kv_cache):
+    """Test position embeddings start from cache length when using KV cache"""
+    new_tokens = torch.randint(0, config.vocab_size, (2, 3))
+    
+    logits = model(new_tokens, pre_populated_kv_cache)
+    
+    assert logits.shape == (2, 3, config.vocab_size), "Should process new tokens correctly"
+    assert torch.isfinite(logits).all(), "Should produce finite logits with pre-populated cache"
+
+
+
 # Test generate
 
-def test_generate_shape_transformation(model, sample_tokens):
-    """Test core contract: (B, T) -> (B, T+max_new_tokens)"""
+def test_generate_shape_transformation(model, sample_tokens, empty_kv_cache):
+    """Test core contract: (B, T) -> (B, max_new_tokens)"""
     max_new_tokens = 10
-    generated_tokens = model.generate(sample_tokens, max_new_tokens)
-    assert generated_tokens.shape == (2, sample_tokens.shape[1] + max_new_tokens)
+    generated_tokens = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
+    assert generated_tokens.shape == (2, max_new_tokens)
 
-def test_generate_invalid_max_new_tokens(model, sample_tokens):
+def test_generate_invalid_max_new_tokens(model, sample_tokens, empty_kv_cache):
     """Test error handling when max_new_tokens exceeds block_size"""
     max_new_tokens = model.config.block_size - sample_tokens.shape[1] + 1
     with pytest.raises(ValueError, match="Cannot generate more tokens than the block size"):
-        model.generate(sample_tokens, max_new_tokens)
+        model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
 
-def test_generate_context_preservation(model, sample_tokens):
-    """Test that original context is preserved in generated output"""
-    max_new_tokens = 5
-    generated_tokens = model.generate(sample_tokens, max_new_tokens)
-    
-    # Original context should be unchanged at the beginning
-    original_length = sample_tokens.shape[1]
-    assert torch.equal(
-        generated_tokens[:, :original_length], 
-        sample_tokens
-    ), "Original context should be preserved"
-
-def test_generate_token_range_validation(model, sample_tokens):
+def test_generate_token_range_validation(model, sample_tokens, empty_kv_cache):
     """Test that generated tokens are in valid vocabulary range"""
     max_new_tokens = model.config.block_size - sample_tokens.shape[1]
-    generated_tokens = model.generate(sample_tokens, max_new_tokens)
+    generated_tokens = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
     
     assert generated_tokens.min() >= 0, "Generated tokens should be >= 0"
     assert generated_tokens.max() < model.config.vocab_size, \
         f"Generated tokens should be < vocab_size ({model.config.vocab_size})"
 
-def test_generate_deterministic_with_seed(model, sample_tokens):
+def test_generate_deterministic_with_seed(model, sample_tokens, empty_kv_cache):
     """Test that generation is deterministic with same seed"""
     max_new_tokens = 5
     
     torch.manual_seed(42)
-    generated1 = model.generate(sample_tokens, max_new_tokens)
+    generated1 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
     torch.manual_seed(42)
-    generated2 = model.generate(sample_tokens, max_new_tokens)
+    generated2 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
     
     assert torch.equal(generated1, generated2), \
         "Same seed should produce identical generation"
 
-def test_generate_different_seeds_produce_different_results(model, sample_tokens):
+def test_generate_different_seeds_produce_different_results(model, sample_tokens, empty_kv_cache):
     """Test that different seeds produce different results (probabilistic)"""
     max_new_tokens = 10
     
     torch.manual_seed(42)
-    generated1 = model.generate(sample_tokens, max_new_tokens)
+    generated1 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
     torch.manual_seed(123)
-    generated2 = model.generate(sample_tokens, max_new_tokens)
+    generated2 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
     
     assert not torch.equal(generated1, generated2), \
         "Different seeds should produce different generation"
 
-def test_generate_zero_new_tokens(model, sample_tokens):
+def test_generate_zero_new_tokens(model, sample_tokens, empty_kv_cache):
     """Test edge case of generating zero new tokens"""
-    generated_tokens = model.generate(sample_tokens, max_new_tokens=0)
-    assert torch.equal(generated_tokens, sample_tokens), \
-        "Zero new tokens should return original context"
+    generated_tokens = model.generate(sample_tokens, max_new_tokens=0, kv_cache=empty_kv_cache)
+    assert generated_tokens.shape == (2, 0), \
+        "Zero new tokens should return empty tensor"
 
-def test_generate_device_consistency(model, config, device):
+def test_generate_device_consistency(model, config, device, empty_kv_cache):
     """Test that generated tokens are on same device as input"""
     model = model.to(device)
-    context = torch.randint(0, config.vocab_size, (1, 5)).to(device)
+    empty_kv_cache = tuple([cache_layer.to(device) for cache_layer in empty_kv_cache])
+    context = torch.randint(0, config.vocab_size, (2, 5)).to(device)
     
-    generated_tokens = model.generate(context, max_new_tokens=3)
+    generated_tokens = model.generate(context, max_new_tokens=3, kv_cache=empty_kv_cache)
     
     assert generated_tokens.device.type == device.type, \
         f"Generated tokens should be on {device}"
 
 
-def test_generate_no_gradients(model, sample_tokens):
+def test_generate_no_gradients(model, sample_tokens, empty_kv_cache):
     """Test that generation doesn't compute gradients"""
     for param in model.parameters():
         param.requires_grad_(True)
     
-    model.generate(sample_tokens, max_new_tokens=3)
+    model.generate(sample_tokens, max_new_tokens=3, kv_cache=empty_kv_cache)
     
     for param in model.parameters():
         assert param.grad is None, \
             "Generation should not accumulate gradients (due to @torch.no_grad())"
+
+def test_generate_with_provided_kv_cache(model, sample_tokens, empty_kv_cache, device):
+    """Test generate accepts and works with provided KV cache"""
+    model = model.to(device)
+    sample_tokens = sample_tokens.to(device)
+    empty_kv_cache = tuple(layer.to(device) for layer in empty_kv_cache)
+    
+    max_new_tokens = 5
+    generated_tokens = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
+    
+    assert generated_tokens.shape == (2, max_new_tokens), "Should generate correct number of tokens"
+    assert generated_tokens.min() >= 0, "Generated tokens should be >= 0"
+    assert generated_tokens.max() < model.config.vocab_size, "Generated tokens should be < vocab_size"
+
+def test_generate_with_various_cache_states(model, sample_tokens, kv_cache_state):
+    """Test generation works with both empty and pre-populated caches"""
+    max_new_tokens = 3
+    generated_tokens = model.generate(sample_tokens, max_new_tokens, kv_cache_state)
+    
+    assert generated_tokens.shape == (2, max_new_tokens), "Should work with any cache state"
+    assert generated_tokens.min() >= 0, "Should produce valid tokens"
+    assert generated_tokens.max() < model.config.vocab_size, "Should produce valid tokens"
+
+def test_generate_external_kv_cache_persistence(model, sample_tokens, empty_kv_cache):
+    """Test that external KV cache persists state across generate calls"""
+    initial_cache_length = len(empty_kv_cache[0])
+    
+    # First generation
+    generated1 = model.generate(sample_tokens, 3, empty_kv_cache)
+    cache_length_after_first = len(empty_kv_cache[0])
+    
+    # Second generation reusing same cache
+    generated2 = model.generate(sample_tokens, 2, empty_kv_cache)
+    cache_length_after_second = len(empty_kv_cache[0])
+    
+    assert cache_length_after_first > initial_cache_length, "Cache should be populated after first generation"
+    assert cache_length_after_second > cache_length_after_first, "Cache should accumulate across calls"
+    assert generated1.shape == (2, 3), "First generation should produce correct shape"
+    assert generated2.shape == (2, 2), "Second generation should produce correct shape"
+
+def test_multi_step_generation_with_shared_cache(model, sample_tokens, empty_kv_cache):
+    """Test multiple generation steps sharing the same cache"""
+    context1 = sample_tokens[:, :5]
+    context2 = sample_tokens[:, 5:]
+    
+    # Generate from first context
+    gen1 = model.generate(context1, 2, empty_kv_cache)
+    
+    # Generate from second context with same cache
+    gen2 = model.generate(context2, 2, empty_kv_cache)
+    
+    assert gen1.shape == (2, 2), "First generation should work correctly"
+    assert gen2.shape == (2, 2), "Second generation should work correctly"
+    assert len(empty_kv_cache[0]) > 0, "Cache should contain accumulated state"
+
+# Test error handling
+
+def test_generate_kv_cache_device_mismatch(model, sample_tokens, empty_kv_cache):
+    """Test error handling when cache is on wrong device"""
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available for device mismatch test")
+    
+    model = model.to('cpu')
+    sample_tokens = sample_tokens.to('cpu')
+    empty_kv_cache = tuple(layer.to('cuda') for layer in empty_kv_cache)
+    
+    with pytest.raises(ValueError, match="Device mismatch"):
+        model.generate(sample_tokens, 2, empty_kv_cache)
+
+def test_generate_kv_cache_batch_size_mismatch(model, different_batch_tokens, empty_kv_cache):
+    """Test error when cache batch size doesn't match context"""
+    # empty_kv_cache has batch_size=2, different_batch_tokens has batch_size=3
+    with pytest.raises(ValueError, match="New keys and values must match the dimensions of the cache"):
+        model.generate(different_batch_tokens, 2, empty_kv_cache)
+
+def test_kv_cache_capacity_limits(model, config, empty_kv_cache):
+    """Test behavior when approaching block size limits with cache"""
+    # Use a context that, when combined with max_new_tokens, exceeds block_size
+    max_context_len = config.block_size - 2  # Leave room for only 2 new tokens
+    long_context = torch.randint(0, config.vocab_size, (2, max_context_len))
+    
+    # This should work (within block_size)
+    generated = model.generate(long_context, 2, empty_kv_cache)
+    assert generated.shape == (2, 2), "Should generate within block_size limits"
+    
+    # This should fail (exceeds block_size)
+    with pytest.raises(ValueError, match="Cannot generate more tokens than the block size"):
+        model.generate(long_context, 3, empty_kv_cache)
 
 # Test device
 def test_device(model, device):

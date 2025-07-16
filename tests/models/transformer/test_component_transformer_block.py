@@ -1,5 +1,6 @@
 import torch
 import pytest
+from src.lm_models.transformer.kv_cache import KVCacheLayer
 from src.lm_models.transformer.components import TransformerBlock
 from src.lm_models.transformer.config import TransformerConfig
 
@@ -131,3 +132,17 @@ def test_forward_parallel_vs_sequential_attention(config, sample_input, parallel
     target_shape = (B, T, config.embed_dim)
     assert output.shape == target_shape
     assert torch.isfinite(output).all(), "Output should be finite"
+
+def test_forward_rejects_kv_cache_for_non_parallel_attention(config, sample_input):
+    """Test that kv_cache is only supported for ParallelMultiHeadAttention"""
+    empty_kv_cache = KVCacheLayer.empty(config, batch_size=2, dtype=torch.float32, device=torch.device('cpu'))
+    
+    config.parallel = False
+    block_sequential = TransformerBlock(config)
+    with pytest.raises(ValueError, match="kv_cache is only supported for ParallelMultiHeadAttention"):
+        block_sequential(sample_input, kv_cache=empty_kv_cache)
+    
+    config.parallel = True
+    block_parallel = TransformerBlock(config)
+    output = block_parallel(sample_input, kv_cache=empty_kv_cache)
+    assert output.shape == sample_input.shape

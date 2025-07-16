@@ -9,20 +9,21 @@ from pathlib import Path
 import wandb
 
 from lm_models.transformer import TransformerLanguageModel
+from lm_models.transformer.kv_cache import KVCacheLayer
 from lm_datasets.language_dataset import LanguageDataset
-from lm_tokenizers import Tokenizer, DeduplicatedBPETokenizer
+from lm_tokenizers import Tokenizer, FastMaxBPETokenizer
 from lm_datasets.offset_sampler import OffsetSampler
 
 from script_utils import Config, ArgsParser, setup_precision, get_autocast_ctx
-
 
 def generate_example(model: TransformerLanguageModel, tokenizer: Tokenizer, max_tokens: int, config: Config) -> str:
     """Generate a single example from the model"""
     mixed_precision_ctx = get_autocast_ctx(config)
     model.eval()
-    idx = torch.zeros((1,1), dtype=torch.long).to(model.device)
+    kv_cache = tuple([KVCacheLayer.empty(model.config, 1, model.dtype, model.device) for _ in range(model.config.n_layers)])
+    context = torch.zeros((1,1), dtype=torch.long).to(model.device)
     with mixed_precision_ctx:
-        raw_prediction = model.generate(idx, max_new_tokens=max_tokens-1)[0].tolist()
+        raw_prediction = model.generate(context, max_new_tokens=max_tokens-1, kv_cache=kv_cache)[0].tolist()
     model.train()
     return tokenizer.decode(raw_prediction)
 
@@ -67,7 +68,7 @@ def train_loop(
 
     val_loss = evaluate_model(model, val_loader, config)
     print(f'Validation loss: {val_loss}, global_step: {global_step}')
-    wandb.log({"val_loss": val_loss}, step=global_step)
+    # wandb.log({"val_loss": val_loss}, step=global_step)
 
     # autocast context manager for mixed precision training
     mixed_precision_ctx = get_autocast_ctx(config)
@@ -100,12 +101,12 @@ def train_loop(
             progress_bar.update(1)
 
             progress_bar.set_postfix(loss=loss.item(), global_step=global_step)
-            wandb.log({"loss": loss.item()}, step=global_step)
+            # wandb.log({"loss": loss.item()}, step=global_step)
 
             if global_step % config.eval_interval == 0 or global_step == config.max_train_steps:
                 val_loss = evaluate_model(model, val_loader, config)
                 print(f'Validation loss: {val_loss}, global_step: {global_step}')
-                wandb.log({"val_loss": val_loss}, step=global_step)
+                # wandb.log({"val_loss": val_loss}, step=global_step)
 
             if global_step % config.example_interval == 0 or global_step == config.max_train_steps:
                 print("================================================")
@@ -136,7 +137,7 @@ def main():
     with open(data_path, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    tokenizer = DeduplicatedBPETokenizer.load(config.tokenizer_path)
+    tokenizer = FastMaxBPETokenizer.load(config.tokenizer_path)
         
     train_dataset = LanguageDataset(text, tokenizer, split='train', 
                                     train_split=config.train_split, 
@@ -165,7 +166,7 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
 
-    wandb.init(project="language-modelling", config=config)
+    # wandb.init(project="language-modelling", config=config)
 
     final_loss = train_loop(model, optimizer, train_loader, val_loader, tokenizer, config)
     print(f'Final loss: {final_loss}')

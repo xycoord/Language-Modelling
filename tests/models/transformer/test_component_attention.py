@@ -260,3 +260,33 @@ def test_equivalence_gradient_computation(sample_inputs):
         "Key gradients should be equivalent"
     assert torch.allclose(v_flash.grad, v_nonflash.grad, atol=1e-5, rtol=1e-5), \
         "Value gradients should be equivalent"
+
+
+# ================================ Causal Masking with KV Cache ================================
+
+def test_causal_masking_with_kv_cache_scenario(attention_instance):
+    """Test that causal masking works correctly when k,v are longer than q (KV cache scenario)"""
+    attention_instance.eval()  # Disable dropout for deterministic test
+    
+    # Simulate KV cache scenario: k,v include cached tokens + current tokens
+    cache_len = 3
+    current_len = 2
+    total_len = cache_len + current_len
+    
+    q = torch.randn(1, current_len, 32)
+    k = torch.randn(1, total_len, 32)
+    v = torch.randn(1, total_len, 32)
+    
+    baseline_output = attention_instance(q, k, v)
+    
+    # Modify the second current token (future relative to first current token)
+    k_modified = k.clone()
+    v_modified = v.clone()
+    k_modified[:, cache_len + 1, :] += 1000  # Position 4 (second current token)
+    v_modified[:, cache_len + 1, :] += 1000
+    
+    modified_output = attention_instance(q, k_modified, v_modified)
+    
+    # First current token output should be unchanged (causal masking)
+    assert torch.allclose(baseline_output[:, 0:1, :], modified_output[:, 0:1, :], atol=1e-6), \
+        "Causal masking should work correctly with KV cache scenario (k,v longer than q)"

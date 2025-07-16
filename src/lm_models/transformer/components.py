@@ -5,6 +5,7 @@ from torch.nn import functional as F
 import warnings
 
 from .config import TransformerConfig
+from .kv_cache import KVCacheLayer
 
 class ResidualProjection(nn.Linear):
     """Linear layer that projects back to the residual stream"""
@@ -33,10 +34,13 @@ class Attention(nn.Module):
             self.attention_dropout = nn.Dropout(dropout)
 
     def forward(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
-        seq_len = q.shape[-2]
+        q_len = q.shape[-2]
+        k_len = k.shape[-2]
 
-        if seq_len > self.block_size:
-            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.block_size}")
+        if q_len > self.block_size or k_len > self.block_size:
+            raise ValueError(f"Sequence length {max(q_len, k_len)} exceeds block size {self.block_size}")
+        if q_len > k_len:
+            raise ValueError(f"Query length {q_len} cannot exceed key length {k_len} (invalid cache state)")
         
         if self.flash:
             return F.scaled_dot_product_attention(q, k, v, 
@@ -46,7 +50,14 @@ class Attention(nn.Module):
         
         # Not flash
         attention_scores = q @ k.transpose(-2, -1) * self.head_size**-0.5
-        masked_scores = attention_scores.masked_fill(self.causal_mask[:seq_len, :seq_len] == 0, float('-inf'))
+
+        # Handle causal masking for both standard and KV cache cases
+        # Can attend to all cached positions + causal mask for current positions
+        causal_mask = self.causal_mask[:k_len, :k_len]
+        causal_mask = causal_mask[-q_len:, :] 
+        
+        masked_scores = attention_scores.masked_fill(causal_mask == 0, float('-inf'))
+
         attention_weights = F.softmax(masked_scores, dim=-1)
         attention_weights = self.attention_dropout(attention_weights)
         return attention_weights @ v
@@ -66,10 +77,6 @@ class AttentionHead(nn.Module):
         self.attention = Attention(block_size, head_size, dropout, flash)
 
     def forward(self, input: Tensor) -> Tensor:
-        seq_len = input.shape[-2]
-        if seq_len > self.block_size:
-            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.block_size}")
-        
         q = self.query_proj(input)
         k = self.key_proj(input)
         v = self.value_proj(input)
@@ -90,10 +97,6 @@ class MultiHeadAttention(nn.Module):
         self.residual_dropout = nn.Dropout(config.dropout)
 
     def forward(self, input: Tensor) -> Tensor:
-        seq_len = input.shape[-2]
-        if seq_len > self.config.block_size:
-            raise ValueError(f"Sequence length {seq_len} exceeds block size {self.config.block_size}")
-        
         out = torch.cat([head(input) for head in self.heads], dim=-1)
         out = self.output_proj(out)
         out = self.residual_dropout(out)
@@ -118,10 +121,8 @@ class ParallelMultiHeadAttention(nn.Module):
         self.output_proj = ResidualProjection(config.num_heads * self.head_size, config.embed_dim)
         self.residual_dropout = nn.Dropout(config.dropout)
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: Tensor, kv_cache: KVCacheLayer | None = None) -> Tensor:
         B, T, _ = input.shape
-        if T > self.config.block_size:
-            raise ValueError(f"Sequence length {T} exceeds block size {self.config.block_size}")
 
         # Compute q, k, and v using a single linear projection
         # q, k, and v are concatenated along the last dimension
@@ -135,7 +136,12 @@ class ParallelMultiHeadAttention(nn.Module):
         q = q.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
         k = k.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_size).transpose(1, 2)
-         
+
+        if kv_cache is not None:
+            kv_cache.append(k, v)
+            k = kv_cache.keys
+            v = kv_cache.values        
+
         output = self.attention(q, k, v)
 
         # Concatenate heads
@@ -180,7 +186,13 @@ class TransformerBlock(nn.Module):
         self.layer_norm1 = nn.LayerNorm(config.embed_dim)
         self.layer_norm2 = nn.LayerNorm(config.embed_dim)
 
-    def forward(self, residual_stream: Tensor) -> Tensor:
-        residual_stream = residual_stream + self.self_attention(self.layer_norm1(residual_stream))
+    def forward(self, residual_stream: Tensor, kv_cache: KVCacheLayer | None = None) -> Tensor:
+        if kv_cache is not None: 
+            if not isinstance(self.self_attention, ParallelMultiHeadAttention):
+                raise ValueError("kv_cache is only supported for ParallelMultiHeadAttention")
+            residual_stream = residual_stream + self.self_attention(self.layer_norm1(residual_stream), kv_cache)
+        else:
+            residual_stream = residual_stream + self.self_attention(self.layer_norm1(residual_stream))
+
         residual_stream = residual_stream + self.feed_forward(self.layer_norm2(residual_stream))
         return residual_stream
