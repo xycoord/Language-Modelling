@@ -148,3 +148,9 @@ class KVCacheLayer:
         return self
 
 KVCache = tuple[KVCacheLayer, ...]
+
+def clone_kv_cache(kv_cache: KVCache) -> KVCache:
+    """
+    Clones the given KV cache.
+    """
+    return tuple(layer.clone() for layer in kv_cache)

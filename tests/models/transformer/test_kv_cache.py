@@ -168,7 +168,9 @@ def test_empty_dtype_device_combinations(basic_config, dtype, device):
     cache = KVCacheLayer.empty(basic_config, batch_size=1, dtype=dtype, device=device)
     
     assert cache.dtype == dtype, f"Expected dtype {dtype}, got {cache.dtype}"
-    assert cache.device == device, f"Expected device {device}, got {cache.device}"
+    assert cache.device.type == device.type, f"Expected device type {device.type}, got {cache.device.type}"
+    assert (cache.device.index or 0) == (device.index or 0), f"Expected device index {device.index or 0}, got {cache.device.index or 0}"
+
 
 def test_empty_missing_head_size():
     # Create config that bypasses validation to set head_size=None

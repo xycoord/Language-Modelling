@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.lm_models.transformer.kv_cache import KVCacheLayer
+from src.lm_models.transformer.kv_cache import KVCacheLayer, clone_kv_cache
 from src.lm_models.transformer.model import TransformerLanguageModel
 from src.lm_models.transformer.config import TransformerConfig
 
@@ -285,10 +285,13 @@ def test_generate_deterministic_with_seed(model, sample_tokens, empty_kv_cache):
     """Test that generation is deterministic with same seed"""
     max_new_tokens = 5
     
+    empty_cache_1 = clone_kv_cache(empty_kv_cache)
+    empty_cache_2 = clone_kv_cache(empty_kv_cache)
+
     torch.manual_seed(42)
-    generated1 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
+    generated1 = model.generate(sample_tokens, max_new_tokens, empty_cache_1)
     torch.manual_seed(42)
-    generated2 = model.generate(sample_tokens, max_new_tokens, empty_kv_cache)
+    generated2 = model.generate(sample_tokens, max_new_tokens, empty_cache_2)
     
     assert torch.equal(generated1, generated2), \
         "Same seed should produce identical generation"
