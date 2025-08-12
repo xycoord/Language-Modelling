@@ -2,7 +2,8 @@ import torch
 from tqdm import tqdm
 from pathlib import Path
 
-from mech_interp import SyntheticSparseDataGenerator, plot_feature_directions, ParallelToyModel
+from mech_interp import plot_feature_directions, ParallelToyModel
+from mech_interp.data_generators import SyntheticSparseDataGenerator
 from mech_interp.script_utils import create_sparsity_range, create_importance, weighted_mse_loss
 
 # ==== Parameters ====

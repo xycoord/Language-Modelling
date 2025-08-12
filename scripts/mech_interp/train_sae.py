@@ -3,7 +3,8 @@ from pathlib import Path
 from tqdm import tqdm
 import torch.nn.functional as F
 
-from mech_interp import ToyModel, SyntheticSparseDataGenerator 
+from mech_interp import ToyModel
+from mech_interp.data_generators import SyntheticSparseDataGenerator
 from mech_interp.sparse_autoencoder import TopKSparseAutoencoder
 from mech_interp.script_utils import create_uniform_sparsity, create_importance
 from mech_interp.geometric_median import geometric_median
