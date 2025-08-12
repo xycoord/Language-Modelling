@@ -20,15 +20,17 @@ class SyntheticSparseDataGenerator():
             raise ValueError("sparsity must be between 0 and 1")
         
         self.batch_size = batch_size
-        self._feature_probability = 1-sparsity.to(device)
-        self._feature_probability = self._feature_probability.unsqueeze(0).expand(batch_size, -1, -1)
         self._data_shape = (batch_size, *sparsity.shape)
+        self._feature_probability = 1-sparsity.to(device)
+        self._feature_probability = self._feature_probability.unsqueeze(0).expand(self._data_shape)
         self.device = device
 
-    def generate_batch(self):
+    def generate_batch(self) -> torch.Tensor:
         raw_vector = torch.rand(self._data_shape, device=self.device)
         active_mask = torch.bernoulli(self._feature_probability)
         feature_vector = raw_vector * active_mask
         return feature_vector
 
-
+    def to(self, device: torch.device):
+        self.device = device
+        return self

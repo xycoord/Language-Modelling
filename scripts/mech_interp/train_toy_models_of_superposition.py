@@ -3,6 +3,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 from mech_interp import SyntheticSparseDataGenerator, plot_feature_directions, ParallelToyModel
+from mech_interp.script_utils import create_sparsity_range, create_importance, weighted_mse_loss
 
 # ==== Parameters ====
 
@@ -10,7 +11,8 @@ feature_dim = 5
 hidden_dim = 2
 
 importance_decay = 0.9
-min_feature_probability = 0.05
+min_sparsity = 0.0
+max_sparsity = 0.95
 
 num_models = 10
 batch_size = 1024
@@ -22,24 +24,15 @@ print(f"Using device: {device}")
 
 # ==== Set up ====
 
-feature_probabilities = torch.logspace(0, -1, num_models, base=1/min_feature_probability)
-sparsity = (1 - feature_probabilities)
-# Repeat sparsity across feature dimension: (num_models,) -> (num_models, feature_dim)
-sparsity = sparsity.unsqueeze(1).expand(-1, feature_dim)
+sparsity = create_sparsity_range(min_sparsity, max_sparsity, num_models, feature_dim)
 
-importance = importance_decay ** torch.arange(feature_dim, dtype=torch.float)
-importance = importance.to(device)
+importance = create_importance(feature_dim, importance_decay).to(device)
 
-model = ParallelToyModel(n_instances=num_models, n_features=feature_dim, n_hidden=hidden_dim).to(device)
+model = ParallelToyModel(num_models, feature_dim, hidden_dim).to(device)
 
 data_generator = SyntheticSparseDataGenerator(batch_size=batch_size, sparsity=sparsity, device=device)
 
 # ==== Training ====
-
-def weighted_mse_loss(output, target, weight):
-    per_feature_loss = weight * (target - output) ** 2
-    per_instance_loss = torch.mean(per_feature_loss, dim=(0,2))
-    return per_instance_loss.mean()
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -50,7 +43,7 @@ for step in progress_bar:
 
     batch = data_generator.generate_batch()
 
-    output = model(batch)
+    output, _ = model(batch)
 
     loss = weighted_mse_loss(output, batch, importance)
     loss.backward()
@@ -58,11 +51,15 @@ for step in progress_bar:
 
     progress_bar.set_postfix(loss=loss.item())
 
-# ==== Interpretability ====
+# ==== Plot Feature Directions ====
 
-feature_directions = model.get_feature_directions()
+feature_directions = model.get_feature_directions().cpu()
 
 script_dir = Path(__file__).resolve().parent
 save_path = script_dir / 'toy_model_feature_directions.png'
-plot_feature_directions(feature_directions, feature_probabilities, importance, save_path=save_path)
+
+sparcity_list = [sparsity[i][0].item() for i in range(num_models)]
+labels = [f'Sparsity = {sparcity:.3f}' for sparcity in sparcity_list]
+
+plot_feature_directions(feature_directions, labels, importance, save_path=save_path)
 print(f"Saved feature directions to {save_path}")

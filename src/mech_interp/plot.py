@@ -1,16 +1,22 @@
 import matplotlib.pyplot as plt
 import torch
 
-def plot_feature_directions(feature_directions: torch.Tensor, feature_probabilities: torch.Tensor, importance: torch.Tensor, save_path: str):
+def plot_feature_directions(feature_directions: torch.Tensor, labels: list[str], importance: torch.Tensor, save_path: str):
     """Plot feature directions for each toy model.
     The feature directions are plotted as arrows from the origin to the feature direction.
 
     Args:
-        feature_directions: feature directions for each model (n_instances, n_features, n_hidden)
-        feature_probabilities: feature probabilities for each model (used to set the titles)
+        feature_directions: feature directions for each model (n_instances, feature_dim, hidden_dim)
+        labels: labels for each model
         importance: importance of each feature (used to colour the feature directions)
         save_path: path to save the plot
     """
+
+    if feature_directions.ndim == 2:  # Shape: (feature_dim, hidden_dim)
+        feature_directions = feature_directions.unsqueeze(0)  # -> (1, feature_dim, hidden_dim)
+    if len(labels) != feature_directions.shape[0]:
+        raise ValueError("Number of labels must match number of feature directions")
+    
     # Importance-based colors
     n_features = feature_directions[0].shape[0]
     colors = plt.cm.viridis(importance.cpu().numpy() / importance.max())
@@ -34,10 +40,7 @@ def plot_feature_directions(feature_directions: torch.Tensor, feature_probabilit
         ax.axvline(x=0, color='k', linewidth=0.5)
         ax.set_xlim(-axes_limit, axes_limit)
         ax.set_ylim(-axes_limit, axes_limit)
-        
-        # Title with sparsity
-        sparsity = 1 - feature_probabilities[i].item()
-        ax.set_title(f'Sparsity = {sparsity:.3f}', fontsize=12, weight='bold')
+        ax.set_title(f'{labels[i]}', fontsize=12, weight='bold')
 
         # Plot feature directions
         for feature_idx in range(n_features):
