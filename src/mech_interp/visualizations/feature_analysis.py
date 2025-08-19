@@ -108,16 +108,16 @@ label_config = {
 heading_config = {
     **annotation_config,
     'x':0, 
-    'y':1.17, 
+    'y':1.1, 
     'xanchor': 'left',
-    'yanchor': 'top',
+    'yanchor': 'bottom',
 }
 bias_heading_config = {
     **annotation_config,
-    'x':0, 
-    'y':1.17, 
+    'x':0.5, 
+    'y':1.1, 
     'xanchor': 'center',
-    'yanchor': 'top',
+    'yanchor': 'bottom',
 }
 
 # Sizing logic: Keep heatmaps square, bars proportional to n_features
@@ -126,7 +126,7 @@ bar_section_width = 500
 bias_section_width = 5 
     
 # Calculate relative proportions for subplot layout
-total_width = bar_section_width + heatmap_size
+total_width = bar_section_width + heatmap_size + bias_section_width
 bar_proportion = bar_section_width / total_width
 heatmap_proportion = heatmap_size / total_width
 bias_proportion = bias_section_width / total_width
@@ -284,7 +284,7 @@ def plot_feature_analysis(
     # Set figure size based on content
     fig.update_layout(
         width=total_width,
-        height=heatmap_size * n_instances,
+        height=heatmap_size * n_instances + 80,
         **layout_config
     )
     

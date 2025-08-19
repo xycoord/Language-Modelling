@@ -41,6 +41,10 @@ class ToyModel(nn.Module):
     def get_feature_directions(self) -> torch.Tensor:
         """Returns: [feature_dim, hidden_dim]"""
         return self.weight.detach()
+    
+    def get_bias(self) -> torch.Tensor:
+        """Returns: [feature_dim]"""
+        return self.bias.detach()
 
 class ParallelToyModel(nn.Module):
     """
