@@ -93,3 +93,9 @@ class ParallelToyModel(nn.Module):
         """
         return self.weights.detach()
 
+    def get_bias(self) -> torch.Tensor:
+        """
+        Returns:
+            bias: [n_instances, feature_dim]
+        """
+        return self.bias.detach()

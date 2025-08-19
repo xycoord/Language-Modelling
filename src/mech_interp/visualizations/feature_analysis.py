@@ -109,29 +109,38 @@ heading_config = {
     **annotation_config,
     'x':0, 
     'y':1.17, 
-    'textangle': 0, 
     'xanchor': 'left',
+    'yanchor': 'top',
+}
+bias_heading_config = {
+    **annotation_config,
+    'x':0, 
+    'y':1.17, 
+    'xanchor': 'center',
     'yanchor': 'top',
 }
 
 # Sizing logic: Keep heatmaps square, bars proportional to n_features
 heatmap_size = 200  # Square size for heatmaps
 bar_section_width = 500
+bias_section_width = 5 
     
 # Calculate relative proportions for subplot layout
 total_width = bar_section_width + heatmap_size
 bar_proportion = bar_section_width / total_width
 heatmap_proportion = heatmap_size / total_width
+bias_proportion = bias_section_width / total_width
 
 subplot_config = {
     'shared_xaxes': True,
     'vertical_spacing': 0.02,
     'horizontal_spacing': 0.02,
-    'column_widths': [bar_proportion, heatmap_proportion],
+    'column_widths': [bar_proportion, heatmap_proportion, bias_proportion],
 }
 
 def plot_feature_analysis(
-    W: torch.Tensor,
+    weights: torch.Tensor,
+    bias: torch.Tensor,
     labels: list[str]|None = None,
     use_paper_polysemanticity: bool = False
     ) -> go.Figure:
@@ -142,20 +151,24 @@ def plot_feature_analysis(
         How much does each feature interfere with other features? 
         (see `compute_polysemanticity`)
     - Interference: WᵀW (heatmap)
+    - Bias: b (heatmap)
 
     Note: The returned figure must be displayed using `fig.show()` to be visible.
 
     Args:
-        W: Weight matrices for each model (n_instances, feature_dim, hidden_dim)
+        weights: Weight matrices for each model (n_instances, feature_dim, hidden_dim)
+        bias: Bias vectors for each model (n_instances, feature_dim)
         labels: Labels for each model (n_instances)
 
     Returns:
         fig: Plotly figure object.
     """
-    if W.ndim == 2:  # Shape: (feature_dim, 2)
-        W = W.unsqueeze(0) # -> (1, feature_dim, 2)
+    if weights.ndim == 2:  # Shape: (feature_dim, 2)
+        weights = weights.unsqueeze(0) # -> (1, feature_dim, 2)
+    if bias.ndim == 1:  # Shape: (feature_dim,)
+        bias = bias.unsqueeze(0) # -> (1, feature_dim)
 
-    n_instances, n_features, n_hidden = W.shape
+    n_instances, n_features, n_hidden = weights.shape
 
     if labels is not None and len(labels) != n_instances:
         raise ValueError("Number of labels must match number of instances")
@@ -164,28 +177,31 @@ def plot_feature_analysis(
     # Bar X-Axis
     x = torch.arange(n_features)
     # Bar heights
-    norms = torch.linalg.norm(W, 2, dim=-1).cpu()
+    norms = torch.linalg.norm(weights, 2, dim=-1).cpu()
     # Bar Colors
     if use_paper_polysemanticity:
-        polysemanticity = compute_polysemanticity_paper(W).cpu()
+        polysemanticity = compute_polysemanticity_paper(weights).cpu()
     else:
-        polysemanticity = compute_polysemanticity(W).cpu()
+        polysemanticity = compute_polysemanticity(weights).cpu()
 
     # Heatmap Colors
-    WtW = torch.bmm(W, W.transpose(-1, -2)).cpu()
+    WtW = torch.bmm(weights, weights.transpose(-1, -2)).cpu()
+    
+    bias = bias.unsqueeze(-1).cpu() # -> (n_instances, feature_dim, 1)
 
     fig = make_subplots(
         rows=n_instances,
-        cols=2,
-        specs=[[{"secondary_y": False}, {"secondary_y": False}]] * n_instances,
+        cols=3,
+        specs=[[{"secondary_y": False}]*3] * n_instances,
         **subplot_config,
     )
 
     for inst in range(n_instances):
 
         row = inst+1 # row is 1-indexed
-        bar_index = '' if inst == 0 else 2*inst+1
-        heatmap_index = 2*inst+2
+        bar_index = '' if inst == 0 else 3*inst+1
+        heatmap_index = 3*inst+2
+        bias_index = 3*inst+3
 
         # Add polysemanticity bar chart
         fig.add_trace(
@@ -215,6 +231,24 @@ def plot_feature_analysis(
         )
         fig.update_xaxes(constrain='domain', row=row, col=2)
 
+        # Add bias heatmap
+        fig.add_trace(
+            go.Heatmap(
+                z=bias[inst],
+                showscale=False,
+                **heatmap_config
+            ),
+            row=row, col=3
+        )
+        fig.update_yaxes(
+            constrain='domain',
+            autorange='reversed',
+            row=row, col=3
+        )
+        fig.update_xaxes(constrain='domain', row=row, col=3)
+
+
+        # Add headings
         fig.add_annotation(
             text=f"∥Wᵢ∥",
             xref=f"x{bar_index} domain",
@@ -226,6 +260,12 @@ def plot_feature_analysis(
             xref=f"x{heatmap_index} domain",
             yref=f"y{heatmap_index} domain",
             **heading_config
+        )
+        fig.add_annotation(
+            text=f"b",
+            xref=f"x{bias_index} domain",
+            yref=f"y{bias_index} domain",
+            **bias_heading_config
         )
 
         if labels is not None:
