@@ -58,8 +58,8 @@ def create_sparsity_range(min_sparsity: float,
     Note: max_sparsity must be < 1 (else would cause division by zero)
     Return shape: (num_models, feature_dim)
     """
-    if not (0 <= min_sparsity < max_sparsity < 1):
-        raise ValueError("Sparsity values must satisfy: 0 <= min_sparsity < max_sparsity < 1")
+    if not (0 <= min_sparsity <= max_sparsity < 1):
+        raise ValueError("Sparsity values must satisfy: 0 <= min_sparsity < max_sparsity <= 1")
     if num_models <= 0:
         raise ValueError("num_models must be > 0")
     if feature_dim <= 0:
